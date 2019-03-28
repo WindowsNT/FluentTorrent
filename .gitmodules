@@ -1,0 +1,6 @@
+[submodule "uwplib"]
+	path = uwplib
+	url = https://github.com/WindowsNT/uwplib
+[submodule "mt"]
+	path = mt
+	url = https://github.com/WindowsNT/mt
