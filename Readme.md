@@ -5,13 +5,14 @@ A quick torrent client using Fluent Design and XAML islands.
 https://www.turboirc.com/ft, prebuild x64/x86 static binaries with auto update
 
 # Libraries used
-LibTorrent - https://libtorrent.org/
-UWPLib - https://github.com/WindowsNT/uwplib
-MT - https://github.com/WindowsNT/mt
-XML - https://github.com/WindowsNT/xml
-OpenSSL
-SQLite3
-Boost
+
+* LibTorrent - https://libtorrent.org/
+* UWPLib - https://github.com/WindowsNT/uwplib
+* MT - https://github.com/WindowsNT/mt
+* XML - https://github.com/WindowsNT/xml
+* OpenSSL
+* SQLite3
+* Boost
 
 
 # To Build

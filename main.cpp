@@ -126,7 +126,7 @@ UWPLIB::UWPCONTROL* c = 0;
 
 struct TREQUEST
 {
-	int Type = 0; //  1 Add Magnet, 2 Pause/Resume, 3 Resume, 4 Delete, 5 Add File
+	int Type = 0; //  1 Add Magnet, 2 Pause/Resume, 3 Resume, 4 Delete, 5 Add File, 6 delete + torrent
 	string h;
 	ystring t;
 	unsigned long long row = 0;
@@ -279,7 +279,6 @@ void BitThread()
 						}
 					}
 				}
-
 				r.pop();
 			}
 		});
@@ -584,9 +583,25 @@ void DeleteTorrent(const char *hss)
 							Setting("HASHTODELETE", "", true);
 							r.push(rr);
 						});
-
-
 					});
+
+/*					auto b11 = dlg.FindName(L"TorrDelButton2").as<Button>();
+					b11.Click([](const IInspectable& ins, const RoutedEventArgs& r)
+					{
+						StackPanel sp = c->ins.as<StackPanel>();
+						auto dlg = sp.FindName(L"DeleteTorrentDlg").as<ContentDialog>();
+						dlg.Hide();
+
+						reqs.writelock([&](queue<TREQUEST>& r)
+						{
+							TREQUEST rr;
+							rr.Type = 6;
+							rr.h = Setting("HASHTODELETE", "");
+							Setting("HASHTODELETE", "", true);
+							r.push(rr);
+						});
+					});
+*/
 
 				}
 
@@ -1047,96 +1062,33 @@ void AddTorrentFile(const wchar_t* f,bool CheckMutex)
 }
 
 
+ystring xaml;
 void ViewTorrents()
 {
+
+	if (xaml.empty())
+	{
+		auto hm = GetModuleHandle(0);
+		auto h1 = FindResource(hm, L"MV", L"DATA");
+		if (h1)
+		{
+			auto h2 = LoadResource(hm, h1);
+			if (h2)
+			{
+				auto h3 = LockResource(h2);
+				auto sz = SizeofResource(hm, h1);
+				vector<char> x(sz + 1);
+				memcpy(x.data(), h3, sz);
+				xaml = x.data();
+			}
+		}
+	}
+	if (xaml.empty())
+		return;
 	
-	// Page 1
-	auto p1 = LR"(
-
-<StackPanel xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Name="Panel1">
-
-	<ContentDialog x:Name="DeleteTorrentDlg" IsPrimaryButtonEnabled="false"  >
-		<StackPanel>
-					<TextBlock FontWeight="Bold" Text="Delete this torrent?" Margin="10"/>
-					<TextBlock Text="" x:Name="TorrToDelete" Margin="10" />
-					<StackPanel Orientation="Horizontal" Margin="10">
-						<Button Content="Torrent Only" x:Name="TorrDelButton1" Margin="10,0,0,0"/>
-						<Button Content="Torrent and data" x:Name="TorrDelButton2" Margin="10,0,0,0"/>
-						<Button Content="Cancel" x:Name="TorrDelButton3" Margin="10,0,0,0"/>
-					</StackPanel>
-		</StackPanel>
-	</ContentDialog>
-	<ContentDialog x:Name="Dlg1" IsPrimaryButtonEnabled="false"  >
-		<StackPanel>
-						<TextBlock FontWeight="Bold" Text="Enter an URL:" />
-						<TextBox Width="300" x:Name="murl" Margin="0,10,0,10" />
-			<Border Background="LightBlue" BorderBrush="LightBlue" BorderThickness="2" Margin="0,10,0,10" />
-			<StackPanel Orientation="Horizontal" Margin="0,10,0,10" >
-						<Button Content="Add" x:Name="btn2" Margin="0,0,10,0"/>
-						<Button Content="Cancel" x:Name="btn3"/>
-			</StackPanel>
-
-		</StackPanel>
-	</ContentDialog>
-
-	<CommandBar Background="Transparent" IsOpen="False" DefaultLabelPosition="Right">
-		<AppBarButton Icon="Add" Label="Add URL" x:Name="btn1"/>
-		<AppBarButton Icon="Add" Label="Add File" x:Name="btnf"/>
-		<AppBarButton Icon="More" Label="Settings" x:Name="btns"/>
-	</CommandBar>
-
-
-	<StackPanel Visibility="Collapsed" x:Name="Options">
-		<TextBlock FontSize="24" Text="Options" Margin="20,0,0,0" />
-		<Pivot Margin="20,0,0,150">
-			<PivotItem Header="Basic" >
-				<StackPanel>
-					<Button Content="Change" Name="TB_SaveDirB" />
-				</StackPanel>
-			</PivotItem>
-			<PivotItem Header="Miscellaneous" >
-				<StackPanel>
-					<CheckBox Name="CB_MagnetLink" Content="Enable Magnet Link" />
-					<CheckBox Name="CB_TorrentFile" Content="Associate with torrent files" />
-					<CheckBox Name="CB_AV" Content="Scan finished torrents for threats" />
-				</StackPanel>
-			</PivotItem>
-			<PivotItem Header="Advanced" >
-				<StackPanel>
-				</StackPanel>
-			</PivotItem>
-		</Pivot>
-		<Border Background="LightBlue" BorderBrush="LightBlue" BorderThickness="2"  />
-		<Button Content="Back" x:Name="btnoptionsback" Margin="10,10,10,0"/>
-	</StackPanel>
-
-	<StackPanel x:Name="MainView" Orientation="Horizontal">
-
-		<Border Background="LightBlue" BorderBrush="LightBlue" BorderThickness="2"  />
-		<ListView x:Name="torrlist" >
-		</ListView>
-
-
-
-		<Border Background="LightBlue" BorderBrush="LightBlue" BorderThickness="2"  />
-
-		<StackPanel x:Name="pivotstack">
-			<Pivot x:Name="pitt" Visibility="Collapsed">
-				<PivotItem Header="Info">
-				</PivotItem>
-				<PivotItem Header="Files">
-					<ListView x:Name="FilesView" />
-				</PivotItem>
-			</Pivot>
-		</StackPanel>
-	</StackPanel>
-</StackPanel>
-
-)";
-
 
 	ystring pp1;
-	pp1.Format(p1, Setting("TORRENTDIR", ".\\TORRENTS").c_str());
+	pp1.Format(xaml.c_str(), Setting("TORRENTDIR", ".\\TORRENTS").c_str());
 
 	SetWindowText(hX, pp1.c_str());
 	//NavigationView nv = c->ins.as<NavigationView>();
