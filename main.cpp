@@ -180,8 +180,8 @@ void BitThread()
 	auto last_save_resume = GetTickCount();
 	// Load all torrents from database
 
-	sqlite::sqlite sql("config.db");
-	sqlite::query q(sql.h(), "SELECT * FROM TORRENTS");
+	sqlite::sqlite sqlx("config.db");
+	sqlite::query q(sqlx.h(), "SELECT * FROM TORRENTS");
 	map<string, string> row;
 	while (q.NextRow(row))
 	{
@@ -304,7 +304,7 @@ void BitThread()
 					stringstream out;
 					lt::bencode(std::ostream_iterator<char>(out), *rd->resume_data);
 
-					sqlite::query q(sql.h(), "UPDATE TORRENTS SET RD = ? WHERE HASH = ?");
+					sqlite::query q(sqlx.h(), "UPDATE TORRENTS SET RD = ? WHERE HASH = ?");
 					string hh = hs(h.info_hash());
 					string b = XML3::Char2Base64((const char*)out.str().data(), out.str().size());
 
@@ -318,7 +318,7 @@ void BitThread()
 			if (auto at = lt::alert_cast<lt::add_torrent_alert>(a))
 			{
 				th->push_back(at->handle);
-				sqlite::query q(sql.h(), "UPDATE TORRENTS SET HASH = ? WHERE ID = ?");
+				sqlite::query q(sqlx.h(), "UPDATE TORRENTS SET HASH = ? WHERE ID = ?");
 				string hh = hs(at->handle.info_hash());
 				q.BindText(1, hh.c_str(), hh.length());
 				char t[10] = { 0 };
@@ -932,7 +932,7 @@ void UpdateListView2(lt::torrent_status* st)
 				else
 					pitt.Visibility(Xaml::Visibility::Collapsed);
 			}
-
+			
 
 			auto prg = sp.FindName(ystring().Format(L"Prg%S", ha.c_str())).as<ProgressBar>();
 			auto ra = sp.FindName(ystring().Format(L"RA%S", ha.c_str())).as<TextBlock>();
@@ -1530,7 +1530,6 @@ case WM_USER + 301:
 			RECT rc;
 			GetClientRect(hh, &rc);
 			SetWindowPos(hX, 0, 0, 0, rc.right, rc.bottom, SWP_SHOWWINDOW);
-			UWPLIB::UWPCONTROL* c = (UWPLIB::UWPCONTROL*)SendMessage(hX, UWPM_GET_CONTROL, 0, 0);
 			if (c)
 				SetWindowPos(c->hwndDetailXamlIsland, 0, 0, 0, rc.right, rc.bottom, SWP_SHOWWINDOW);
 			return 0;
