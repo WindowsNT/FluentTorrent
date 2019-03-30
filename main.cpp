@@ -446,7 +446,6 @@ void BitThread()
 					if (t.is_valid())
 					{
 						t.save_resume_data();
-
 					}
 				}
 			});
@@ -455,20 +454,22 @@ void BitThread()
 
 
 
-		th.readlock([](const vector<lt::torrent_handle>& v) {
-			for (auto& t : v)
-			{
-				if (t.is_valid())
-				{
-					t.save_resume_data();
-					lt::torrent_status ts = t.status();
-					SendMessage(MainWindow, WM_USER + 552, 0, (LPARAM)&ts);
-				}
-			}
-		});
-
-		EndT1 = true;
 	}
+
+
+	th.readlock([](const vector<lt::torrent_handle>& v) {
+		for (auto& t : v)
+		{
+			if (t.is_valid())
+			{
+				t.save_resume_data();
+				lt::torrent_status ts = t.status();
+				SendMessage(MainWindow, WM_USER + 552, 0, (LPARAM)&ts);
+			}
+		}
+	});
+
+	EndT1 = true;
 }
 
 void UpdateListView(lt::torrent_handle* e,WPARAM Rem = 0)
