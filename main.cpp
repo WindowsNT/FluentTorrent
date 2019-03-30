@@ -1604,24 +1604,35 @@ void ViewMain()
 		unsigned int idx = lv.SelectedIndex();
 		auto s = LVSelected;
 		LVSelected.clear();
+		if (lv.SelectedItems().Size() != 1)
+		{
+			nv.FindName(L"MainView2").as<StackPanel>().Orientation(Orientation::Vertical);
+			StackPanel pvs = nv.FindName(L"pivotstack").as<StackPanel>();
+			Pivot pitt = pvs.Children().GetAt(0).as<Pivot>();
+			pitt.Visibility(Visibility::Collapsed);
+			return;
+		}
+
 		if (idx < lv.Items().Size())
 		{
 			// Get StackPanel idx
+			nv.FindName(L"MainView2").as<StackPanel>().Orientation(Orientation::Horizontal);
 			auto spx = lv.Items().GetAt(idx).as<StackPanel>();
 			ystring n = unbox_value<hstring>(spx.Tag()).c_str();
 			LVSelected = n;
 			if (s == LVSelected)
 			{
-				LVSelected.clear();
+/*				LVSelected.clear();
 				lv.SelectedItems().Clear();
 				// Hide the pivot
 				StackPanel pvs = nv.FindName(L"pivotstack").as<StackPanel>();
 				Pivot pitt = pvs.Children().GetAt(0).as<Pivot>();
 				pitt.Visibility(Visibility::Collapsed);
-			}
+	*/		}
 		}
 		else
 		{
+			nv.FindName(L"MainView2").as<StackPanel>().Orientation(Orientation::Vertical);
 			StackPanel pvs = nv.FindName(L"pivotstack").as<StackPanel>();
 			Pivot pitt = pvs.Children().GetAt(0).as<Pivot>();
 			pitt.Visibility(Visibility::Collapsed);
