@@ -180,7 +180,14 @@ void BitThread()
 		| lt::alert::connect_notification
 	);
 
-	pack.set_str(lt::settings_pack::listen_interfaces, "0.0.0.0:7008");
+	int PN = _wtoi(Setting("TCPPORT", "7008").c_str());
+	if (PN > 0)
+	{
+		ystring y;
+		y.Format(L"0.0.0.0:%u", PN);
+		pack.set_str(lt::settings_pack::listen_interfaces, y.a_str());
+	}
+
 	pack.set_str(lt::settings_pack::user_agent, lt::generate_fingerprint("FT", 1));
 	lt::session ses(pack);
 	ses.add_extension(&libtorrent::create_ut_metadata_plugin);
@@ -1277,6 +1284,14 @@ void ItemInvoked(const IInspectable& nav, const NavigationViewItemInvokedEventAr
 }
 void BackRequested(const IInspectable& nav, const NavigationViewBackRequestedEventArgs& r)
 {
+	// Save settings...
+	NavigationView nv = c->ins.as<NavigationView>();
+	auto T_TCPPort = nv.FindName(L"T_TCPPort").as<TextBox>();
+	int PortNum = _wtoi(T_TCPPort.Text().c_str());
+	Setting("TCPPORT", ystring().Format(L"%u",PortNum).a_str(), true);
+
+
+
 	ShowMainView();
 }
 #endif
@@ -1580,6 +1595,11 @@ void ViewMain()
 		}
 
 	});
+
+	// Port Number
+	auto T_TCPPort = x1.FindName(L"T_TCPPort").as<TextBox>();
+	ystring PortNum = Setting("TCPPORT", "7008");
+	T_TCPPort.Text(PortNum);
 
 }
 
