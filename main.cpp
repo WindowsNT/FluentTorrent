@@ -21,7 +21,7 @@ int CALLBACK BrowseCallbackProc(
 
 #ifdef USE_NAVIGATIONVIEW
 #define TopView NavigationView
-std::wstring mvx = L"mv2";
+std::wstring mvx = L"mv";
 #else
 #define TopView StackPanel
 std::wstring mvx = L"mv1";
@@ -1297,7 +1297,7 @@ void ItemInvoked(const IInspectable& nav, const NavigationViewItemInvokedEventAr
 	{
 		ShowMainView();
 	}
-	if (str == L"AVResults")
+	if (str == L"AV Results")
 	{
 		ShowAVScan();
 	}
