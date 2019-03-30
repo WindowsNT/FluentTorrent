@@ -667,7 +667,7 @@ void DeleteTorrent(const char *hss)
 	});
 }
 
-tlock<queue<tuple<string,vector<wstring>>>> scanqueue;
+tlock<queue<tuple<string,vector<wstring>,string>>> scanqueue;
 void AVThread()
 {
 	HAMSICONTEXT h = 0;
@@ -682,10 +682,12 @@ void AVThread()
 
 		vector<wstring> files;
 		string hash;
-		scanqueue.writelock([&](queue<tuple<string, vector<wstring>>>& vv) {
+		string tn;
+		scanqueue.writelock([&](queue<tuple<string, vector<wstring>,string>>& vv) {
 			if (vv.empty())
 				return;
 			auto& m = vv.front();
+			tn = get<2>(m);
 			files = get<1>(m);
 			hash = get<0>(m);
 			vv.pop();
@@ -694,6 +696,11 @@ void AVThread()
 		if (files.empty())
 			continue;
 
+
+		ystring y;
+		y.Format(L"Scanning %s...",ystring(tn.c_str()).c_str());
+		SendMessage(MainWindow, WM_USER + 554, 0, (LPARAM)y.c_str());
+
 		bool FoundMalware = false;
 		for (size_t i = 0; i < files.size(); i++)
 		{
@@ -701,10 +708,14 @@ void AVThread()
 			if (m.size() == 0)
 				continue;
 			AMSI_RESULT ar;
+			y.Format(L"Scanning [%s] %s...", ystring(tn.c_str()).c_str(),files[i].c_str());
+			SendMessage(MainWindow, WM_USER + 554, 0, (LPARAM)y.c_str());
 			if (FAILED(AmsiScanBuffer(h, (PVOID)m.operator const char *(), m.size(), files[i].c_str(), 0, &ar)))
 				continue;
 			if (AmsiResultIsMalware(ar))
 			{
+				y.Format(L"Found malware [%s] %s...", ystring(tn.c_str()).c_str(), files[i].c_str());
+				SendMessage(MainWindow, WM_USER + 554,(WPARAM)y.c_str(),0);
 				FoundMalware = true;
 			}
 		}
@@ -720,8 +731,8 @@ void AVThread()
 			q.BindText(1, hash.c_str(), hash.length());
 			q.R();
 		}
-
-
+		y.Format(L"Scanning %s finished.", ystring(tn.c_str()).c_str());
+		SendMessage(MainWindow, WM_USER + 554, 0, (LPARAM)y.c_str());
 	}
 	EndT2 = true;
 	AmsiUninitialize(h);
@@ -734,6 +745,8 @@ void AVScan(lt::torrent_handle t)
 	vector<wstring> fils;
 	string hh = hs(t.info_hash());
 	size_t n = t.torrent_file()->files().num_files();
+
+	string tn = t.status().name;
 	for (int iif = 0; iif < n; iif++)
 	{
 		ystring np = Setting("TORRENTDIR", ".\\TORRENTS").c_str();
@@ -743,11 +756,13 @@ void AVScan(lt::torrent_handle t)
 		fils.push_back(np);
 	}
 
-	scanqueue.writelock([&](queue<tuple<string, vector<wstring>>>& vv) {
+	scanqueue.writelock([&](queue<tuple<string, vector<wstring>,string>>& vv) {
 
-		tuple<string, vector<wstring>> a;
+		tuple<string, vector<wstring>,string> a;
 		get<0>(a) = hh;
 		get<1>(a) = fils;
+		get<2>(a) = tn;
+
 		vv.push(a);
 	});
 
@@ -1214,36 +1229,50 @@ void ShowMainView()
 	nv.IsBackEnabled(false);
 }
 
+
+void ShowAVScan()
+{
+	NavigationView nv = c->ins.as<NavigationView>();
+	auto spm = c->ins.as<TopView>().FindName(L"MainView").as<StackPanel>();
+	auto sp = c->ins.as<TopView>().FindName(L"Options").as<StackPanel>();
+	auto scn = c->ins.as<TopView>().FindName(L"AVResults").as<StackPanel>();
+	spm.Visibility(Visibility::Collapsed);
+	scn.Visibility(Visibility::Visible);
+	sp.Visibility(Visibility::Collapsed);
+	nv.IsBackEnabled(true);
+}
+
+void ShowSettings()
+{
+	NavigationView nv = c->ins.as<NavigationView>();
+	auto spm = c->ins.as<TopView>().FindName(L"MainView").as<StackPanel>();
+	auto sp = c->ins.as<TopView>().FindName(L"Options").as<StackPanel>();
+	auto scn = c->ins.as<TopView>().FindName(L"AVResults").as<StackPanel>();
+	spm.Visibility(Visibility::Collapsed);
+	sp.Visibility(Visibility::Visible);
+	scn.Visibility(Visibility::Collapsed);
+	nv.IsBackEnabled(true);
+}
+
 void ItemInvoked(const IInspectable& nav, const NavigationViewItemInvokedEventArgs& r)
 {
 	NavigationView nv = c->ins.as<NavigationView>();
 
 	auto it = r.InvokedItemContainer().as<NavigationViewItem>();
 	auto tag = it.Content();
+	if (!tag)
+	{
+		ShowSettings();
+		return;
+	}
 	ystring str = unbox_value<hstring>(tag).c_str();
 	if (str == L"Torrents")
 	{
 		ShowMainView();
 	}
-	if (str == L"Settings")
-	{
-		auto spm = c->ins.as<TopView>().FindName(L"MainView").as<StackPanel>();
-		auto sp = c->ins.as<TopView>().FindName(L"Options").as<StackPanel>();
-		auto scn = c->ins.as<TopView>().FindName(L"AVResults").as<StackPanel>();
-		spm.Visibility(Visibility::Collapsed);
-		sp.Visibility(Visibility::Visible);
-		scn.Visibility(Visibility::Collapsed);
-		nv.IsBackEnabled(true);
-	}
 	if (str == L"AVResults")
 	{
-		auto spm = c->ins.as<TopView>().FindName(L"MainView").as<StackPanel>();
-		auto sp = c->ins.as<TopView>().FindName(L"Options").as<StackPanel>();
-		auto scn = c->ins.as<TopView>().FindName(L"AVResults").as<StackPanel>();
-		spm.Visibility(Visibility::Collapsed);
-		scn.Visibility(Visibility::Visible);
-		sp.Visibility(Visibility::Collapsed);
-		nv.IsBackEnabled(true);
+		ShowAVScan();
 	}
 }
 void BackRequested(const IInspectable& nav, const NavigationViewBackRequestedEventArgs& r)
@@ -1616,6 +1645,36 @@ case WM_USER + 301:
 			UpdateListView2(h2);
 			return 0;
 		}
+
+		case WM_USER + 554: // set Scan text
+		{
+			TopView nv = c->ins.as<TopView>();
+			if (ll)
+			{
+				auto ins = nv.FindName(L"ScanText");
+				if (ins)
+					ins.as<TextBlock>().Text((wchar_t*)ll);
+			}
+			if (ww)
+			{
+				auto ins = nv.FindName(L"scanlist");
+				if (ins)
+				{
+					auto lv = ins.as<ListView>();
+
+					ystring sp;
+					sp = ystring().Format(
+						LR"(
+					<TextBlock Margin="20,0,0,0" Text="%s" />
+						)", (wchar_t*)ww);
+					auto ins2 = XamlReader::Load(sp.c_str());
+					lv.Items().Append(ins2);
+					ShowAVScan();
+				}
+			}
+			return 0;
+		}
+
 		case WM_CREATE:
 			{
 			hX = CreateWindowEx(0, L"UWP_Custom", L"", WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, hh, (HMENU)901, 0, 0);
