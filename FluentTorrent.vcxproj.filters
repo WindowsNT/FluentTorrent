@@ -62,5 +62,8 @@
     <Page Include="main.xaml">
       <Filter>Resources</Filter>
     </Page>
+    <Page Include="main2.xaml">
+      <Filter>Resources</Filter>
+    </Page>
   </ItemGroup>
 </Project>

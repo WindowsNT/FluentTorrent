@@ -17,7 +17,15 @@ int CALLBACK BrowseCallbackProc(
 	return 0;
 }
 
+#define USE_NAVIGATIONVIEW
 
+#ifdef USE_NAVIGATIONVIEW
+#define TopView NavigationView
+std::wstring mvx = L"mv2";
+#else
+#define TopView StackPanel
+std::wstring mvx = L"mv1";
+#endif
 
 
 bool BrowseFolder(HWND hh, const TCHAR* tit, const TCHAR* root, const TCHAR* sel, TCHAR* rv)
@@ -419,7 +427,7 @@ void BitThread()
 void UpdateListView(lt::torrent_handle* e,WPARAM Rem = 0)
 {
 	// Update the ListView
-	StackPanel nv = c->ins.as<StackPanel>();
+	TopView nv = c->ins.as<TopView>();
 	try
 	{
 		auto lv = nv.FindName(L"torrlist").as<ListView>();
@@ -555,7 +563,7 @@ void DeleteTorrent(const char *hss)
 				else
 				{
 					// This is the one
-					StackPanel sp = c->ins.as<StackPanel>();
+					TopView sp = c->ins.as<TopView>();
 					auto dlg = sp.FindName(L"DeleteTorrentDlg").as<ContentDialog>();
 					dlg.FindName(L"TorrToDelete").as<TextBlock>().Text(ystring(vv.status().name.c_str()));
 					auto apo = dlg.ShowAsync();
@@ -563,7 +571,7 @@ void DeleteTorrent(const char *hss)
 					auto b3 = dlg.FindName(L"TorrDelButton3").as<Button>();
 					b3.Click([](const IInspectable& ins, const RoutedEventArgs& r)
 					{
-						StackPanel sp = c->ins.as<StackPanel>();
+						TopView sp = c->ins.as<TopView>();
 						auto dlg = sp.FindName(L"DeleteTorrentDlg").as<ContentDialog>();
 						dlg.Hide();
 					});
@@ -571,7 +579,7 @@ void DeleteTorrent(const char *hss)
 					auto b1 = dlg.FindName(L"TorrDelButton1").as<Button>();
 					b1.Click([](const IInspectable& ins, const RoutedEventArgs& r)
 					{
-						StackPanel sp = c->ins.as<StackPanel>();
+						TopView sp = c->ins.as<TopView>();
 						auto dlg = sp.FindName(L"DeleteTorrentDlg").as<ContentDialog>();
 						dlg.Hide();
 
@@ -588,7 +596,7 @@ void DeleteTorrent(const char *hss)
 /*					auto b11 = dlg.FindName(L"TorrDelButton2").as<Button>();
 					b11.Click([](const IInspectable& ins, const RoutedEventArgs& r)
 					{
-						StackPanel sp = c->ins.as<StackPanel>();
+					TopView sp = c->ins.as<TopView>();
 						auto dlg = sp.FindName(L"DeleteTorrentDlg").as<ContentDialog>();
 						dlg.Hide();
 
@@ -675,7 +683,7 @@ void UpdateListView2(lt::torrent_status* st)
 
 
 
-	StackPanel nv = c->ins.as<StackPanel>();
+	TopView nv = c->ins.as<TopView>();
 	StackPanel pvs = nv.FindName(L"pivotstack").as<StackPanel>();
 
 	ystring fn;
@@ -1065,13 +1073,51 @@ void AddTorrentFile(const wchar_t* f,bool CheckMutex)
 
 
 ystring xaml;
-void ViewTorrents()
+
+#ifdef USE_NAVIGATIONVIEW
+void ItemInvoked(const IInspectable& nav, const NavigationViewItemInvokedEventArgs& r)
+{
+	NavigationView nv = c->ins.as<NavigationView>();
+
+	auto it = r.InvokedItemContainer().as<NavigationViewItem>();
+	auto tag = it.Content();
+	auto str = unbox_value<hstring>(tag);
+	if (str == L"Torrents")
+	{
+		auto spm = c->ins.as<TopView>().FindName(L"MainView").as<StackPanel>();
+		auto sp = c->ins.as<TopView>().FindName(L"Options").as<StackPanel>();
+		sp.Visibility(Visibility::Collapsed);
+		spm.Visibility(Visibility::Visible);
+		nv.IsBackEnabled(false);
+	}
+	if (str == L"Settings")
+	{
+		auto spm = c->ins.as<TopView>().FindName(L"MainView").as<StackPanel>();
+		auto sp = c->ins.as<TopView>().FindName(L"Options").as<StackPanel>();
+		spm.Visibility(Visibility::Collapsed);
+		sp.Visibility(Visibility::Visible);
+		nv.IsBackEnabled(true);
+	}
+}
+void BackRequested(const IInspectable& nav, const NavigationViewBackRequestedEventArgs& r)
+{
+	NavigationView nv = c->ins.as<NavigationView>();
+	auto spm = c->ins.as<TopView>().FindName(L"MainView").as<StackPanel>();
+	auto sp = c->ins.as<TopView>().FindName(L"Options").as<StackPanel>();
+	sp.Visibility(Visibility::Collapsed);
+	spm.Visibility(Visibility::Visible);
+	nv.IsBackEnabled(false);
+}
+#endif
+
+
+void ViewMain()
 {
 
 	if (xaml.empty())
 	{
 		auto hm = GetModuleHandle(0);
-		auto h1 = FindResource(hm, L"MV", L"DATA");
+		auto h1 = FindResource(hm, mvx.c_str(), L"DATA");
 		if (h1)
 		{
 			auto h2 = LoadResource(hm, h1);
@@ -1093,12 +1139,13 @@ void ViewTorrents()
 	pp1.Format(xaml.c_str(), Setting("TORRENTDIR", ".\\TORRENTS").c_str());
 
 	SetWindowText(hX, pp1.c_str());
-	//NavigationView nv = c->ins.as<NavigationView>();
-	//auto x1 = XamlReader::Load(p1);
-	//nv.Content(x1);
 	c = (UWPLIB::UWPCONTROL*)SendMessage(hX, UWPM_GET_CONTROL, 0, 0);
-	StackPanel x1 = c->ins.as<StackPanel>();
+	TopView x1 = c->ins.as<TopView>();
 
+#ifdef USE_NAVIGATIONVIEW
+	x1.ItemInvoked(ItemInvoked);
+	x1.BackRequested(BackRequested);
+#endif
 
 	auto PickTorrentDirB = x1.FindName(L"TB_SaveDirB").as<Button>();
 	PickTorrentDirB.Click([](const IInspectable& ins, const RoutedEventArgs& r)
@@ -1109,7 +1156,7 @@ void ViewTorrents()
 			return;
 
 		c = (UWPLIB::UWPCONTROL*)SendMessage(hX, UWPM_GET_CONTROL, 0, 0);
-		StackPanel x1 = c->ins.as<StackPanel>();
+		TopView x1 = c->ins.as<TopView>();
 		Setting("TORRENTDIR", ystring(rv).a_str(),true);
 
 		auto PickTorrentDir = x1.FindName(L"TB_SaveDirB").as<Button>();
@@ -1119,21 +1166,24 @@ void ViewTorrents()
 	auto PickTorrentDir = x1.FindName(L"TB_SaveDirB").as<Button>();
 	PickTorrentDir.Content(box_value(ystring().Format(L"Saving to: %s", Setting("TORRENTDIR", ".\\TORRENTS").c_str())));
 
+
+#ifndef USE_NAVIGATIONVIEW
 	auto SettingsBack = x1.FindName(L"btnoptionsback").as<Button>();
 	SettingsBack.Click([](const IInspectable& ins, const RoutedEventArgs& r)
 	{
-		auto spm = c->ins.as<StackPanel>().FindName(L"MainView").as<StackPanel>();
-		auto sp = c->ins.as<StackPanel>().FindName(L"Options").as<StackPanel>();
+		auto spm = c->ins.as<TopView>().FindName(L"MainView").as<StackPanel>();
+		auto sp = c->ins.as<TopView>().FindName(L"Options").as<StackPanel>();
 		sp.Visibility(Visibility::Collapsed);
 		spm.Visibility(Visibility::Visible);
 	});
+#endif
 
-
+#ifndef USE_NAVIGATIONVIEW
 	auto SettingsB = x1.FindName(L"btns").as<Button>();
 	SettingsB.Click([](const IInspectable& ins, const RoutedEventArgs& r)
 	{
-		auto spm = c->ins.as<StackPanel>().FindName(L"MainView").as<StackPanel>();
-		auto sp = c->ins.as<StackPanel>().FindName(L"Options").as<StackPanel>();
+		auto spm = c->ins.as<TopView>().FindName(L"MainView").as<StackPanel>();
+		auto sp = c->ins.as<TopView>().FindName(L"Options").as<StackPanel>();
 		if (sp.Visibility() == Visibility::Visible)
 		{
 			sp.Visibility(Visibility::Collapsed);
@@ -1143,89 +1193,91 @@ void ViewTorrents()
 		{
 			sp.Visibility(Visibility::Visible);
 			spm.Visibility(Visibility::Collapsed);
-
-			// Magnet Link Button
-			auto cbi = sp.FindName(L"CB_MagnetLink").as<CheckBox>();
-			if (IsMagnet())
-				cbi.IsChecked(true);
-			cbi.Checked([](const IInspectable&  sender, const RoutedEventArgs&)
-			{
-				auto cbi = sender.as<CheckBox>();
-				if (!IsMagnet())
-				{
-					TCHAR fi[1000];
-					GetModuleFileName(GetModuleHandle(0), fi, 1000);
-					RunAsAdmin(0, fi, L"/minstall");
-					if (IsMagnet())
-						cbi.IsChecked(true);
-					else
-						cbi.IsChecked(false);
-				}
-			});
-			cbi.Unchecked([](const IInspectable&  sender, const RoutedEventArgs&)
-			{
-				auto cbi = sender.as<CheckBox>();
-				if (IsMagnet())
-				{
-					TCHAR fi[1000];
-					GetModuleFileName(GetModuleHandle(0), fi, 1000);
-					RunAsAdmin(0, fi, L"/muninstall");
-					if (IsMagnet())
-						cbi.IsChecked(true);
-					else
-						cbi.IsChecked(false);
-				}
-			});
-
-			// Torrent Button
-			auto mbi = sp.FindName(L"CB_TorrentFile").as<CheckBox>();
-			if (IsTorrent())
-				mbi.IsChecked(true);
-			mbi.Checked([](const IInspectable&  sender, const RoutedEventArgs&)
-			{
-				auto mbi = sender.as<CheckBox>();
-				if (!IsTorrent())
-				{
-					TCHAR fi[1000];
-					GetModuleFileName(GetModuleHandle(0), fi, 1000);
-					RunAsAdmin(0, fi, L"/tinstall");
-					if (IsTorrent())
-						mbi.IsChecked(true);
-					else
-						mbi.IsChecked(false);
-				}
-			});
-			mbi.Unchecked([](const IInspectable&  sender, const RoutedEventArgs&)
-			{
-				auto mbi = sender.as<CheckBox>();
-				if (IsTorrent())
-				{
-					TCHAR fi[1000];
-					GetModuleFileName(GetModuleHandle(0), fi, 1000);
-					RunAsAdmin(0, fi, L"/tuninstall");
-					if (IsTorrent())
-						mbi.IsChecked(true);
-					else
-						mbi.IsChecked(false);
-				}
-			});
-
-
-			// Torrent Button
-			auto avi = sp.FindName(L"CB_AV").as<CheckBox>();
-			if (Setting("SCANFINISHED","0") == ystring("1"))
-				avi.IsChecked(true);
-			avi.Checked([](const IInspectable&  sender, const RoutedEventArgs&)
-			{
-				Setting("SCANFINISHED", "1", true);
-			});
-			avi.Unchecked([](const IInspectable&  sender, const RoutedEventArgs&)
-			{
-				Setting("SCANFINISHED", "0", true);
-			});
-
 		}
 	});
+#endif
+
+		// Magnet Link Button
+	auto sp = c->ins.as<TopView>().FindName(L"Options").as<StackPanel>();
+	auto cbi = sp.FindName(L"CB_MagnetLink").as<CheckBox>();
+	if (IsMagnet())
+		cbi.IsChecked(true);
+	cbi.Checked([](const IInspectable&  sender, const RoutedEventArgs&)
+	{
+		auto cbi = sender.as<CheckBox>();
+		if (!IsMagnet())
+		{
+			TCHAR fi[1000];
+			GetModuleFileName(GetModuleHandle(0), fi, 1000);
+			RunAsAdmin(0, fi, L"/minstall");
+			if (IsMagnet())
+				cbi.IsChecked(true);
+			else
+				cbi.IsChecked(false);
+		}
+	});
+	cbi.Unchecked([](const IInspectable&  sender, const RoutedEventArgs&)
+	{
+		auto cbi = sender.as<CheckBox>();
+		if (IsMagnet())
+		{
+			TCHAR fi[1000];
+			GetModuleFileName(GetModuleHandle(0), fi, 1000);
+			RunAsAdmin(0, fi, L"/muninstall");
+			if (IsMagnet())
+				cbi.IsChecked(true);
+			else
+				cbi.IsChecked(false);
+		}
+	});
+
+	// Torrent Button
+	auto mbi = sp.FindName(L"CB_TorrentFile").as<CheckBox>();
+	if (IsTorrent())
+		mbi.IsChecked(true);
+	mbi.Checked([](const IInspectable&  sender, const RoutedEventArgs&)
+	{
+		auto mbi = sender.as<CheckBox>();
+		if (!IsTorrent())
+		{
+			TCHAR fi[1000];
+			GetModuleFileName(GetModuleHandle(0), fi, 1000);
+			RunAsAdmin(0, fi, L"/tinstall");
+			if (IsTorrent())
+				mbi.IsChecked(true);
+			else
+				mbi.IsChecked(false);
+		}
+	});
+	mbi.Unchecked([](const IInspectable&  sender, const RoutedEventArgs&)
+	{
+		auto mbi = sender.as<CheckBox>();
+		if (IsTorrent())
+		{
+			TCHAR fi[1000];
+			GetModuleFileName(GetModuleHandle(0), fi, 1000);
+			RunAsAdmin(0, fi, L"/tuninstall");
+			if (IsTorrent())
+				mbi.IsChecked(true);
+			else
+				mbi.IsChecked(false);
+		}
+	});
+
+
+	// Torrent Button
+	auto avi = sp.FindName(L"CB_AV").as<CheckBox>();
+	if (Setting("SCANFINISHED","0") == ystring("1"))
+		avi.IsChecked(true);
+	avi.Checked([](const IInspectable&  sender, const RoutedEventArgs&)
+	{
+		Setting("SCANFINISHED", "1", true);
+	});
+	avi.Unchecked([](const IInspectable&  sender, const RoutedEventArgs&)
+	{
+		Setting("SCANFINISHED", "0", true);
+	});
+
 
 	auto AddF = x1.FindName(L"btnf").as<Button>();
 	AddF.Click([](const IInspectable& ins, const RoutedEventArgs& r)
@@ -1273,14 +1325,14 @@ void ViewTorrents()
 	auto AddURL = x1.FindName(L"btn1").as<Button>();
 	AddURL.Click([](const IInspectable& ins, const RoutedEventArgs& r)
 	{
-		StackPanel sp = c->ins.as<StackPanel>();
+		TopView sp = c->ins.as<TopView>();
 		auto dlg = sp.FindName(L"Dlg1").as<ContentDialog>();
 		auto apo = dlg.ShowAsync();
 
 		auto magnetButtonCancel = dlg.FindName(L"btn3").as<Button>();
 		magnetButtonCancel.Click([](const IInspectable& ins, const RoutedEventArgs& r)
 		{
-			StackPanel sp = c->ins.as<StackPanel>();
+			TopView sp = c->ins.as<TopView>();
 			auto dlg = sp.FindName(L"Dlg1").as<ContentDialog>();
 			dlg.Hide();
 		});
@@ -1289,7 +1341,7 @@ void ViewTorrents()
 		auto magnetButtonOK = dlg.FindName(L"btn2").as<Button>();
 		magnetButtonOK.Click([](const IInspectable& ins, const RoutedEventArgs& r)
 		{
-			StackPanel sp = c->ins.as<StackPanel>();
+			TopView sp = c->ins.as<TopView>();
 			ystring url = sp.FindName(L"murl").as<TextBox>().Text().c_str();
 			auto dlg = sp.FindName(L"Dlg1").as<ContentDialog>();
 			dlg.Hide();
@@ -1349,7 +1401,7 @@ void ViewTorrents()
 				LVSelected.clear();
 				lv.SelectedItems().Clear();
 				// Hide the pivot
-				StackPanel nv = c->ins.as<StackPanel>();
+				TopView nv = c->ins.as<TopView>();
 				StackPanel pvs = nv.FindName(L"pivotstack").as<StackPanel>();
 				Pivot pitt = pvs.Children().GetAt(0).as<Pivot>();
 				pitt.Visibility(Visibility::Collapsed);
@@ -1359,25 +1411,8 @@ void ViewTorrents()
 	});
 
 }
-/*
-void ItemInvoked(const IInspectable& nav, const NavigationViewItemInvokedEventArgs& r) 
-{
-	NavigationView nv = c->ins.as<NavigationView>();
 
-	auto it = r.InvokedItemContainer().as<NavigationViewItem>();
-	auto str = unbox_value<hstring>(it.Tag());
-	if (str == L"torrents")
-	{
-		ViewTorrents();
-	}
-	if (str == L"settings")
-	{
-		
-		auto x1 = XamlReader::Load(p2);
-		nv.Content(x1);
-	}
-}
-*/
+
 LRESULT CALLBACK Main_DP(HWND hh, UINT mm, WPARAM ww, LPARAM ll)
 	{
 	if (mm == umsg)
@@ -1443,38 +1478,7 @@ case WM_USER + 301:
 			{
 			hX = CreateWindowEx(0, L"UWP_Custom", L"", WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, hh, (HMENU)901, 0, 0);
 			SendMessage(hh, WM_SIZE, 0, 0);
-
-
-		
-/*
-			auto pv = LR"(
-
-<NavigationView xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"  x:Name="nvSample" 
-		Header=""  IsBackEnabled="false" PaneDisplayMode="LeftCompact" IsPaneOpen="false" IsSettingsVisible="false">
-      <NavigationView.MenuItems>
-        <NavigationViewItem Icon="Download" Content="Torrents" Tag="torrents" />
-        <NavigationViewItem Icon="Play" Content="Settings" Tag="settings" />
-    </NavigationView.MenuItems>
-
-</NavigationView>
-
-)";
-
-//			auto hP1 = CreateWindowEx(0, L"UWP_Custom", L"", WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, hh, (HMENU)902, 0, 0);
-
-			SetWindowText(hX, pv);
-
-			c = (UWPLIB::UWPCONTROL*)SendMessage(hX, UWPM_GET_CONTROL, 0, 0);
-			NavigationView nv = c->ins.as<NavigationView>();
-			nv.IsBackButtonVisible(NavigationViewBackButtonVisible::Collapsed);
-			nv.ItemInvoked(ItemInvoked);
-			nv.IsPaneOpen(false);
-			ViewTorrents();
-*/
-
-			ViewTorrents();
-
+			ViewMain();
 			std::thread t(BitThread);			t.detach();
 			break;
 			}
