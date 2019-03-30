@@ -188,6 +188,20 @@ void BitThread()
 		pack.set_str(lt::settings_pack::listen_interfaces, y.a_str());
 	}
 
+	int DL = _wtoi(Setting("DOWNLOADLIMIT", "0").c_str());
+	if (DL > 0) // In KB
+	{
+		pack.set_int(lt::settings_pack::download_rate_limit, DL * 1024);
+	}
+
+	int UL = _wtoi(Setting("UPLOADLIMIT", "0").c_str());
+	if (UL > 0) // In KB
+	{
+		pack.set_int(lt::settings_pack::upload_rate_limit, UL*1024);
+	}
+
+//	download_rate_limit
+
 	pack.set_str(lt::settings_pack::user_agent, lt::generate_fingerprint("FT", 1));
 	lt::session ses(pack);
 	ses.add_extension(&libtorrent::create_ut_metadata_plugin);
@@ -391,6 +405,7 @@ void BitThread()
 				st->handle.save_resume_data();
 				auto sta = st->handle.status();
 
+				bool InScan = false;
 
 				// Already scanned?
 				bool NoScan = false;
@@ -408,10 +423,13 @@ void BitThread()
 				{
 					void AVScan(lt::torrent_handle t);
 					if (Setting("SCANFINISHED", "0") == ystring("1"))
+					{
+						InScan = true;
 						AVScan(st->handle);
+					}
 				}
-
-				SendMessage(MainWindow, WM_USER + 552, 1, (LPARAM)&sta);
+				if (!InScan)
+					SendMessage(MainWindow, WM_USER + 552, 1, (LPARAM)&sta);
 			}
 			if (lt::alert_cast<lt::torrent_error_alert>(a))
 			{
@@ -740,6 +758,8 @@ void AVThread()
 		}
 		y.Format(L"Scanning %s finished.", ystring(tn.c_str()).c_str());
 		SendMessage(MainWindow, WM_USER + 554, 0, (LPARAM)y.c_str());
+
+		
 	}
 	EndT2 = true;
 	AmsiUninitialize(h);
@@ -1282,16 +1302,23 @@ void ItemInvoked(const IInspectable& nav, const NavigationViewItemInvokedEventAr
 		ShowAVScan();
 	}
 }
-void BackRequested(const IInspectable& nav, const NavigationViewBackRequestedEventArgs& r)
+
+void SaveSettings()
 {
 	// Save settings...
 	NavigationView nv = c->ins.as<NavigationView>();
 	auto T_TCPPort = nv.FindName(L"T_TCPPort").as<TextBox>();
 	int PortNum = _wtoi(T_TCPPort.Text().c_str());
-	Setting("TCPPORT", ystring().Format(L"%u",PortNum).a_str(), true);
+	Setting("TCPPORT", ystring().Format(L"%u", PortNum).a_str(), true);
 
+	Setting("UPLOADLIMIT",ystring().Format(L"%u",_wtoi(nv.FindName(L"T_UploadLimit").as<TextBox>().Text().c_str())).a_str(),true);
+	Setting("DOWNLOADLIMIT", ystring().Format(L"%u", _wtoi(nv.FindName(L"T_DownloadLimit").as<TextBox>().Text().c_str())).a_str(), true);
 
+}
 
+void BackRequested(const IInspectable& nav, const NavigationViewBackRequestedEventArgs& r)
+{
+	SaveSettings();
 	ShowMainView();
 }
 #endif
@@ -1572,6 +1599,7 @@ void ViewMain()
 
 	lv.SelectionChanged([](const IInspectable&  sender, const RoutedEventArgs&)
 	{
+		TopView nv = c->ins.as<TopView>();
 		auto lv = sender.as<ListView>();
 		unsigned int idx = lv.SelectedIndex();
 		auto s = LVSelected;
@@ -1587,12 +1615,18 @@ void ViewMain()
 				LVSelected.clear();
 				lv.SelectedItems().Clear();
 				// Hide the pivot
-				TopView nv = c->ins.as<TopView>();
 				StackPanel pvs = nv.FindName(L"pivotstack").as<StackPanel>();
 				Pivot pitt = pvs.Children().GetAt(0).as<Pivot>();
 				pitt.Visibility(Visibility::Collapsed);
 			}
 		}
+		else
+		{
+			StackPanel pvs = nv.FindName(L"pivotstack").as<StackPanel>();
+			Pivot pitt = pvs.Children().GetAt(0).as<Pivot>();
+			pitt.Visibility(Visibility::Collapsed);
+		}
+	
 
 	});
 
@@ -1600,6 +1634,17 @@ void ViewMain()
 	auto T_TCPPort = x1.FindName(L"T_TCPPort").as<TextBox>();
 	ystring PortNum = Setting("TCPPORT", "7008");
 	T_TCPPort.Text(PortNum);
+
+	auto ApplyS = x1.FindName(L"ApplySettingsButton").as<Button>();
+	ApplyS.Click([](const IInspectable& ins, const RoutedEventArgs& r)
+	{
+		SaveSettings();
+	});
+
+	// Other options
+	x1.FindName(L"T_UploadLimit").as<TextBox>().Text(ystring().Format(L"%u",_wtoi(Setting("UPLOADLIMIT","0").c_str())));
+	x1.FindName(L"T_DownloadLimit").as<TextBox>().Text(ystring().Format(L"%u", _wtoi(Setting("DOWNLOADLIMIT", "0").c_str())));
+
 
 }
 
