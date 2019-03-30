@@ -714,7 +714,7 @@ void AVThread()
 				continue;
 			if (AmsiResultIsMalware(ar))
 			{
-				y.Format(L"Found malware [%s] %s...", ystring(tn.c_str()).c_str(), files[i].c_str());
+				y.Format(L"Found malware\r\n %s", files[i].c_str());
 				SendMessage(MainWindow, WM_USER + 554,(WPARAM)y.c_str(),0);
 				FoundMalware = true;
 			}
@@ -1665,7 +1665,7 @@ case WM_USER + 301:
 					ystring sp;
 					sp = ystring().Format(
 						LR"(
-					<TextBlock Margin="20,0,0,0" Text="%s" />
+					<TextBlock xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Margin="20,0,0,0" Text="%s" />
 						)", (wchar_t*)ww);
 					auto ins2 = XamlReader::Load(sp.c_str());
 					lv.Items().Append(ins2);
@@ -1785,7 +1785,6 @@ int __stdcall WinMain(HINSTANCE h, HINSTANCE, LPSTR t, int)
 
 		if (strstr(t, "magnet:") != 0)
 		{
-			MessageBox(0, 0, 0, 0);
 			// Add magnet link
 			ystring url = t;
 			url.erase(url.end() - 1);
