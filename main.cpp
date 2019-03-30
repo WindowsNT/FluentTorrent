@@ -625,19 +625,21 @@ void AVScan(lt::torrent_handle t)
 		fils.push_back(np);
 	}
 
-	std::thread tt([&]() {
+	std::thread tt([](vector<wstring> files) {
 
 		HAMSICONTEXT h = 0;
 		if (FAILED(AmsiInitialize(ttitle, &h)))
 			return;
 
 		bool M = false;
-		size_t n = fils.size();
+		size_t n = files.size();
 		for (int iif = 0; iif < n; iif++)
 		{
-			MMFILE m(fils[iif].c_str());
+			MMFILE m(files[iif].c_str());
+			if (m.size() == 0)
+				continue;
 			AMSI_RESULT ar;
-			if (FAILED(AmsiScanBuffer(h, (PVOID)m.operator const char *(), m.size(), fils[iif].c_str(), 0, &ar)))
+			if (FAILED(AmsiScanBuffer(h, (PVOID)m.operator const char *(), m.size(), files[iif].c_str(), 0, &ar)))
 				continue;
 			if (AmsiResultIsMalware(ar))
 			{
@@ -653,7 +655,7 @@ void AVScan(lt::torrent_handle t)
 
 //		SendMessage(MainWindow, WM_USER + 552, 0,(LPARAM) &sst);
 
-	});
+	},fils);
 	tt.detach();
 
 
@@ -1577,6 +1579,7 @@ int __stdcall WinMain(HINSTANCE h, HINSTANCE, LPSTR t, int)
 
 		if (strstr(t, "magnet:") != 0)
 		{
+			MessageBox(0, 0, 0, 0);
 			// Add magnet link
 			ystring url = t;
 			url.erase(url.end() - 1);
@@ -1598,17 +1601,22 @@ int __stdcall WinMain(HINSTANCE h, HINSTANCE, LPSTR t, int)
 				SendMessage(HWND_TOPMOST, umsg, 1, 0);
 				return 0;
 			}
-			return 0;
 		}
-
-		// Add Torrent File
-		ystring url = t;
-		url.erase(url.end() - 1);
-		url.erase(url.begin());
-		AddTorrentFile(url.c_str(),true);
-		auto hm = OpenMutex(SYNCHRONIZE, false, mutn);
-		if (hm != 0)
-			return 0;
+		else
+		{
+			// Add Torrent File
+			ystring url = t;
+			url.erase(url.end() - 1);
+			url.erase(url.begin());
+			AddTorrentFile(url.c_str(), true);
+			auto hm = OpenMutex(SYNCHRONIZE, false, mutn);
+			if (hm)
+			{
+				CloseHandle(hm);
+				SendMessage(HWND_TOPMOST, umsg, 1, 0);
+				return 0;
+			}
+		}
 	}
 
 
