@@ -141,7 +141,8 @@ struct TREQUEST
 };
 tlock<queue<TREQUEST>> reqs;
 bool End = false;
-bool EndT = true;
+bool EndT1 = false;
+bool EndT2 = false;
 
 
 ystring Setting(const char* k, const char* def = "",bool W = false)
@@ -222,6 +223,7 @@ void BitThread()
 	}
 
 
+	vector<wstring> FilesToDeleteNextDeletion;
 	for (;;)
 	{
 		if (End)
@@ -287,6 +289,30 @@ void BitThread()
 						}
 					}
 				}
+				if (rr.Type == 6) // Delete + files
+				{
+					auto v = ses.get_torrents();
+					for (auto& vv : v)
+					{
+						if (hs(vv.info_hash()) == rr.h)
+						{
+							// Files to Delete 
+							vector<wstring> fils;
+							size_t n = vv.torrent_file()->files().num_files();
+							for (int iif = 0; iif < n; iif++)
+							{
+								ystring np = Setting("TORRENTDIR", ".\\TORRENTS").c_str();
+								np += L"\\";
+								ystring np2 = vv.torrent_file()->files().file_path(iif).c_str();
+								np += np2;
+								fils.push_back(np);
+							}
+							FilesToDeleteNextDeletion = fils;
+							ses.remove_torrent(vv);
+							break;
+						}
+					}
+				}
 				r.pop();
 			}
 		});
@@ -339,6 +365,13 @@ void BitThread()
 			{
 				string hh = hs(at->info_hash);
 				SendMessage(MainWindow, WM_USER + 553, (WPARAM)&hh, (LPARAM)&at->handle);
+
+				for (auto& f : FilesToDeleteNextDeletion)
+					DeleteFile(f.c_str());
+				FilesToDeleteNextDeletion.clear();
+
+
+
 				th.writelock([&](vector<lt::torrent_handle>& thh) {
 					thh = ses.get_torrents();
 				});
@@ -351,11 +384,25 @@ void BitThread()
 				st->handle.save_resume_data();
 				auto sta = st->handle.status();
 
-				// Scan also ?
-				void AVScan(lt::torrent_handle t);
-				if (Setting("SCANFINISHED", "0") == ystring("1"))
-					AVScan(st->handle);
 
+				// Already scanned?
+				bool NoScan = false;
+				auto ha = hs(sta.info_hash);
+				sqlite::query q(sql->h(), "SELECT * FROM TORRENTS WHERE HASH = ?");
+				q.BindText(1, ha.c_str(), strlen(ha.c_str()));
+				map<string, string> row;
+				if (q.NextRow(row))
+				{
+					if (row["SCANNED"] == string("1"))
+						NoScan = true;
+				}
+
+				if (!NoScan)
+				{
+					void AVScan(lt::torrent_handle t);
+					if (Setting("SCANFINISHED", "0") == ystring("1"))
+						AVScan(st->handle);
+				}
 
 				SendMessage(MainWindow, WM_USER + 552, 1, (LPARAM)&sta);
 			}
@@ -420,7 +467,7 @@ void BitThread()
 			}
 		});
 
-		EndT = false;
+		EndT1 = true;
 	}
 }
 
@@ -593,7 +640,7 @@ void DeleteTorrent(const char *hss)
 						});
 					});
 
-/*					auto b11 = dlg.FindName(L"TorrDelButton2").as<Button>();
+					auto b11 = dlg.FindName(L"TorrDelButton2").as<Button>();
 					b11.Click([](const IInspectable& ins, const RoutedEventArgs& r)
 					{
 					TopView sp = c->ins.as<TopView>();
@@ -609,7 +656,7 @@ void DeleteTorrent(const char *hss)
 							r.push(rr);
 						});
 					});
-*/
+
 
 				}
 
@@ -619,10 +666,72 @@ void DeleteTorrent(const char *hss)
 	});
 }
 
+tlock<queue<tuple<string,vector<wstring>>>> scanqueue;
+void AVThread()
+{
+	HAMSICONTEXT h = 0;
+	if (FAILED(AmsiInitialize(ttitle, &h)))
+		return;
+	for (;;)
+	{
+		if (End)
+			break;
+		Sleep(1000);
+
+
+		vector<wstring> files;
+		string hash;
+		scanqueue.writelock([&](queue<tuple<string, vector<wstring>>>& vv) {
+			if (vv.empty())
+				return;
+			auto& m = vv.front();
+			files = get<1>(m);
+			hash = get<0>(m);
+			vv.pop();
+		});
+
+		if (files.empty())
+			continue;
+
+		bool FoundMalware = false;
+		for (size_t i = 0; i < files.size(); i++)
+		{
+			MMFILE m(files[i].c_str());
+			if (m.size() == 0)
+				continue;
+			AMSI_RESULT ar;
+			if (FAILED(AmsiScanBuffer(h, (PVOID)m.operator const char *(), m.size(), files[i].c_str(), 0, &ar)))
+				continue;
+			if (AmsiResultIsMalware(ar))
+			{
+				FoundMalware = true;
+			}
+		}
+
+		if (FoundMalware)
+		{
+		//	MessageBox(MainWindow, L"Torrent contains malware", ttitle, MB_OK);
+		}
+		else
+		{
+			sqlite::sqlite sqlx("config.db");
+			sqlite::query q(sqlx.h(), "UPDATE TORRENTS SET SCANNED = 1 WHERE HASH = ?");
+			q.BindText(1, hash.c_str(), hash.length());
+			q.R();
+		}
+
+
+	}
+	EndT2 = true;
+	AmsiUninitialize(h);
+}
+
+
 void AVScan(lt::torrent_handle t)
 {
 
 	vector<wstring> fils;
+	string hh = hs(t.info_hash());
 	size_t n = t.torrent_file()->files().num_files();
 	for (int iif = 0; iif < n; iif++)
 	{
@@ -633,41 +742,57 @@ void AVScan(lt::torrent_handle t)
 		fils.push_back(np);
 	}
 
-	std::thread tt([](vector<wstring> files) {
+	scanqueue.writelock([&](queue<tuple<string, vector<wstring>>>& vv) {
 
-		HAMSICONTEXT h = 0;
-		if (FAILED(AmsiInitialize(ttitle, &h)))
-			return;
+		tuple<string, vector<wstring>> a;
+		get<0>(a) = hh;
+		get<1>(a) = fils;
+		vv.push(a);
+	});
 
-		bool M = false;
-		size_t n = files.size();
-		for (int iif = 0; iif < n; iif++)
-		{
-			MMFILE m(files[iif].c_str());
-			if (m.size() == 0)
-				continue;
-			AMSI_RESULT ar;
-			if (FAILED(AmsiScanBuffer(h, (PVOID)m.operator const char *(), m.size(), files[iif].c_str(), 0, &ar)))
-				continue;
-			if (AmsiResultIsMalware(ar))
+	/*
+		std::thread tt([](vector<wstring> files,string hash) {
+
+			HAMSICONTEXT h = 0;
+			if (FAILED(AmsiInitialize(ttitle, &h)))
+				return;
+
+			bool M = false;
+			size_t n = files.size();
+			for (int iif = 0; iif < n; iif++)
 			{
-				M = true;
-				break;
+				MMFILE m(files[iif].c_str());
+				if (m.size() == 0)
+					continue;
+				AMSI_RESULT ar;
+				if (FAILED(AmsiScanBuffer(h, (PVOID)m.operator const char *(), m.size(), files[iif].c_str(), 0, &ar)))
+					continue;
+				if (AmsiResultIsMalware(ar))
+				{
+					M = true;
+					break;
+				}
 			}
-		}
 
 
-		AmsiUninitialize(h);
-		if (M)
-			MessageBox(MainWindow, L"Torrent contains malware", ttitle, MB_OK);
+			AmsiUninitialize(h);
+			if (M)
+				MessageBox(MainWindow, L"Torrent contains malware", ttitle, MB_OK);
+			else
+			{
+				sqlite::sqlite sqlx("config.db");
+				sqlite::query q(sqlx.h(), "UPDATE TORRENTS SET SCANNED = 1 WHERE HASH = ?");
+				q.BindText(1, hash.c_str(), hash.length());
+				q.R();
+			}
 
-//		SendMessage(MainWindow, WM_USER + 552, 0,(LPARAM) &sst);
+	//		SendMessage(MainWindow, WM_USER + 552, 0,(LPARAM) &sst);
 
-	},fils);
-	tt.detach();
+		},fils,hh);
+		tt.detach();
 
 
-	
+		*/
 
 
 }
@@ -1075,38 +1200,54 @@ void AddTorrentFile(const wchar_t* f,bool CheckMutex)
 ystring xaml;
 
 #ifdef USE_NAVIGATIONVIEW
+
+void ShowMainView()
+{
+	NavigationView nv = c->ins.as<NavigationView>();
+	auto spm = c->ins.as<TopView>().FindName(L"MainView").as<StackPanel>();
+	auto sp = c->ins.as<TopView>().FindName(L"Options").as<StackPanel>();
+	auto scn = c->ins.as<TopView>().FindName(L"AVResults").as<StackPanel>();
+	sp.Visibility(Visibility::Collapsed);
+	spm.Visibility(Visibility::Visible);
+	scn.Visibility(Visibility::Collapsed);
+	nv.IsBackEnabled(false);
+}
+
 void ItemInvoked(const IInspectable& nav, const NavigationViewItemInvokedEventArgs& r)
 {
 	NavigationView nv = c->ins.as<NavigationView>();
 
 	auto it = r.InvokedItemContainer().as<NavigationViewItem>();
 	auto tag = it.Content();
-	auto str = unbox_value<hstring>(tag);
+	ystring str = unbox_value<hstring>(tag).c_str();
 	if (str == L"Torrents")
 	{
-		auto spm = c->ins.as<TopView>().FindName(L"MainView").as<StackPanel>();
-		auto sp = c->ins.as<TopView>().FindName(L"Options").as<StackPanel>();
-		sp.Visibility(Visibility::Collapsed);
-		spm.Visibility(Visibility::Visible);
-		nv.IsBackEnabled(false);
+		ShowMainView();
 	}
 	if (str == L"Settings")
 	{
 		auto spm = c->ins.as<TopView>().FindName(L"MainView").as<StackPanel>();
 		auto sp = c->ins.as<TopView>().FindName(L"Options").as<StackPanel>();
+		auto scn = c->ins.as<TopView>().FindName(L"AVResults").as<StackPanel>();
 		spm.Visibility(Visibility::Collapsed);
 		sp.Visibility(Visibility::Visible);
+		scn.Visibility(Visibility::Collapsed);
+		nv.IsBackEnabled(true);
+	}
+	if (str == L"AVResults")
+	{
+		auto spm = c->ins.as<TopView>().FindName(L"MainView").as<StackPanel>();
+		auto sp = c->ins.as<TopView>().FindName(L"Options").as<StackPanel>();
+		auto scn = c->ins.as<TopView>().FindName(L"AVResults").as<StackPanel>();
+		spm.Visibility(Visibility::Collapsed);
+		scn.Visibility(Visibility::Visible);
+		sp.Visibility(Visibility::Collapsed);
 		nv.IsBackEnabled(true);
 	}
 }
 void BackRequested(const IInspectable& nav, const NavigationViewBackRequestedEventArgs& r)
 {
-	NavigationView nv = c->ins.as<NavigationView>();
-	auto spm = c->ins.as<TopView>().FindName(L"MainView").as<StackPanel>();
-	auto sp = c->ins.as<TopView>().FindName(L"Options").as<StackPanel>();
-	sp.Visibility(Visibility::Collapsed);
-	spm.Visibility(Visibility::Visible);
-	nv.IsBackEnabled(false);
+	ShowMainView();
 }
 #endif
 
@@ -1480,6 +1621,7 @@ case WM_USER + 301:
 			SendMessage(hh, WM_SIZE, 0, 0);
 			ViewMain();
 			std::thread t(BitThread);			t.detach();
+			std::thread tt(AVThread);			tt.detach();
 			break;
 			}
 
@@ -1673,7 +1815,7 @@ int __stdcall WinMain(HINSTANCE h, HINSTANCE, LPSTR t, int)
 	End = true;
 	for (int i = 0; i < 10; i++)
 	{
-		if (!EndT)
+		if (EndT1 && EndT2)
 			break;
 		Sleep(1000);
 	}
