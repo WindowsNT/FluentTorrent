@@ -655,6 +655,7 @@ void SQLPrep()
 	sqlite::query q0(sql->h(), "PRAGMA foreign_keys = TRUE"); q0.R();
 	sqlite::query q1(sql->h(), "CREATE TABLE IF NOT EXISTS TORRENTS (ID INTEGER PRIMARY KEY, MAGNET TEXT,FILE TEXT,TORRENTFILE TEXT,HASH TEXT,RD TEXT,SCANNED INTEGER) "); q1.R();
 	sqlite::query q2(sql->h(), "CREATE TABLE IF NOT EXISTS SETTINGS (ID INTEGER PRIMARY KEY, NAME TEXT,VALUE TEXT) "); q2.R();
+	sqlite::query q3(sql->h(), "VACUUM"); q3.R();
 }
 
 HRESULT MagnetUnregister()
