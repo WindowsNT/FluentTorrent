@@ -220,6 +220,8 @@ void BitThread()
 
 	pack.set_str(lt::settings_pack::user_agent, lt::generate_fingerprint("FT", 1));
 	lt::session ses(pack);
+
+
 	ses.add_extension(&libtorrent::create_ut_metadata_plugin);
 	ses.add_extension(&libtorrent::create_ut_pex_plugin);
 	ses.add_extension(&libtorrent::create_smart_ban_plugin);
@@ -492,7 +494,14 @@ void BitThread()
 			}
 		}
 	});
-
+/*
+	lt::entry e;
+	ses.save_state(e);
+	stringstream out;
+	lt::bencode(std::ostream_iterator<char>(out), e);
+	string b = XML3::Char2Base64((const char*)out.str().data(), out.str().size());
+	Setting("STATE", b.c_str(), true);
+*/
 	EndT1 = true;
 }
 
@@ -533,7 +542,6 @@ void UpdateListView(const lt::torrent_handle* e,WPARAM Rem = 0)
 			return;
 		}
 
-		auto tinfo = e->torrent_file();
 		ystring sp;
 		sp = ystring().Format(
 			LR"(
@@ -719,6 +727,7 @@ void AVScan(lt::torrent_handle t)
 	string hh = hs(t.info_hash());
 	size_t n = t.torrent_file()->files().num_files();
 
+	
 	string tn = t.status().name;
 	for (int iif = 0; iif < n; iif++)
 	{
@@ -738,50 +747,6 @@ void AVScan(lt::torrent_handle t)
 
 		vv.push(a);
 	});
-
-	/*
-		std::thread tt([](vector<wstring> files,string hash) {
-
-			HAMSICONTEXT h = 0;
-			if (FAILED(AmsiInitialize(ttitle, &h)))
-				return;
-
-			bool M = false;
-			size_t n = files.size();
-			for (int iif = 0; iif < n; iif++)
-			{
-				MMFILE m(files[iif].c_str());
-				if (m.size() == 0)
-					continue;
-				AMSI_RESULT ar;
-				if (FAILED(AmsiScanBuffer(h, (PVOID)m.operator const char *(), m.size(), files[iif].c_str(), 0, &ar)))
-					continue;
-				if (AmsiResultIsMalware(ar))
-				{
-					M = true;
-					break;
-				}
-			}
-
-
-			AmsiUninitialize(h);
-			if (M)
-				MessageBox(MainWindow, L"Torrent contains malware", ttitle, MB_OK);
-			else
-			{
-				sqlite::sqlite sqlx("config.db");
-				sqlite::query q(sqlx.h(), "UPDATE TORRENTS SET SCANNED = 1 WHERE HASH = ?");
-				q.BindText(1, hash.c_str(), hash.length());
-				q.R();
-			}
-
-	//		SendMessage(MainWindow, WM_USER + 552, 0,(LPARAM) &sst);
-
-		},fils,hh);
-		tt.detach();
-
-
-		*/
 
 
 }
@@ -830,10 +795,10 @@ void UpdateListView2(lt::torrent_status* st)
 				if (tf)
 				{
 					pitt.Visibility(Xaml::Visibility::Visible);
-
 					if (LVSelected != SaveP)
 					{
-						auto Info = pitt.Items().GetAt(0).as<PivotItem>();
+						auto Info = pitt.FindName(L"PivotInfo").as<PivotItem>();
+						pitt.SelectedIndex(0);
 						auto ha = hs(st->info_hash);
 
 						bool Finished = false;
@@ -841,6 +806,13 @@ void UpdateListView2(lt::torrent_status* st)
 							Finished = true;
 						// Create info
 
+						ystring comment;
+						shared_ptr<const lt::torrent_info> f = st->torrent_file.lock();
+						if (f)
+						{
+							comment = f->comment();
+							
+						}
 
 							
 						auto pi = sp.FindName(ystring().Format(L"PI%S", ha.c_str())).as<TextBlock>();
@@ -856,6 +828,7 @@ void UpdateListView2(lt::torrent_status* st)
 			
 					<RichTextBlock>
 						<Paragraph>Name: <Run FontStyle="Italic" FontWeight="Bold">%S</Run></Paragraph>
+						<Paragraph>Comments: %s</Paragraph>
 					</RichTextBlock>
 
 					<StackPanel Orientation="Horizontal" Margin="0,10,0,0">
@@ -867,7 +840,7 @@ void UpdateListView2(lt::torrent_status* st)
 )";
 
 							ystring s1;
-							s1.Format(i1, st->name.c_str(),  ha.c_str(),ha.c_str());
+							s1.Format(i1, st->name.c_str(),  comment.c_str(),ha.c_str(),ha.c_str());
 
 							auto x1 = XamlReader::Load(s1);
 							Info.Content(x1);
@@ -881,6 +854,7 @@ void UpdateListView2(lt::torrent_status* st)
 					<RichTextBlock>
 						<Paragraph>Name: <Run FontStyle="Italic" FontWeight="Bold">%S</Run></Paragraph>
 						<Paragraph>Size: <Run FontStyle="Italic" FontWeight="Bold">%.1f MB</Run></Paragraph>
+						<Paragraph>Comments: %s</Paragraph>
 					</RichTextBlock>
 
 					<StackPanel Orientation="Horizontal" Margin="0,10,0,0">
@@ -904,7 +878,7 @@ void UpdateListView2(lt::torrent_status* st)
 )";
 
 							ystring s1;
-							s1.Format(i1, st->name.c_str(), (float)(st->total / 1048576.0f), ha.c_str(), ha.c_str(), ha.c_str(),
+							s1.Format(i1, st->name.c_str(), (float)(st->total / 1048576.0f), comment.c_str(), ha.c_str(), ha.c_str(), ha.c_str(),
 								 ha.c_str(), ha.c_str(), ha.c_str(), ha.c_str(), ha.c_str()
 							);
 
@@ -1058,49 +1032,110 @@ void UpdateListView2(lt::torrent_status* st)
 
 					}
 
-					// Files
-					if (LVSelected != SaveP)
-					{
-						auto Files = pitt.Items().GetAt(1).as<PivotItem>();
-						auto LFiles = Files.FindName(L"FilesView").as<ListView>();
-						LFiles.Items().Clear();
-						if (tf)
-						{
-							size_t n = tf->files().num_files();
-							for (int iif = 0; iif < n; iif++)
+					// Files and Peers Changer
+					pitt.SelectionChanged([](const IInspectable sender, RoutedEventArgs  const & ) {
+						auto P = sender.as<Pivot>();
+						int idx = P.SelectedIndex();
+						if (idx == 0)
+							return; //
+
+						if (LVSelected.empty())
+							return;
+
+						// Find Current Torrent
+						const lt::torrent_handle* h = 0;
+						th.readlock([&](const vector<lt::torrent_handle>& v) {
+
+							for (auto& vv : v)
 							{
-								auto np = tf->files().file_path(iif);
-//								auto nn = tf->files().file_name(iif);
-
-								// Remove &
-								for (auto& aa : np)
+								auto h1 = hs(vv.info_hash());
+								string h2 = ystring(LVSelected.c_str()).a_str();
+								if (h1 == h2)
 								{
-									if (aa == '&')
-										aa = '_';
+									h = &vv;
+									break;
 								}
+							}
+						});
+						if (!h)
+							return;
+
+						if (idx == 1) // Files
+						{
+							auto Files = P.FindName(L"PivotFiles").as<PivotItem>();
+							auto LFiles = Files.FindName(L"FilesView").as<ListView>();
+							LFiles.Items().Clear();
+							auto tf = h->torrent_file();
+							if (tf)
+							{
+								size_t n = tf->files().num_files();
+								for (int iif = 0; iif < n; iif++)
+								{
+									auto np = tf->files().file_path(iif);
+									//								auto nn = tf->files().file_name(iif);
+
+																	// Remove &
+									for (auto& aa : np)
+									{
+										if (aa == '&')
+											aa = '_';
+									}
 
 
-								auto i2 = LR"(
-					<StackPanel xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
- xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-					<TextBlock Text="%S" />
-					</StackPanel>
+									auto i2 = LR"(
+				<StackPanel xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+				<TextBlock Text="%S" />
+				</StackPanel>
 )";
 
-								ystring s2;
-								s2.Format(i2, np.c_str());
-								try
-								{
-									auto x2 = XamlReader::Load(s2);
-									LFiles.Items().Append(x2);
-								}
-								catch (...)
-								{
-									MessageBox(0, s2.c_str(), 0, 0);
+									ystring s2;
+									s2.Format(i2, np.c_str());
+									try
+									{
+										auto x2 = XamlReader::Load(s2);
+										LFiles.Items().Append(x2);
+									}
+									catch (...)
+									{
+									}
 								}
 							}
 						}
-					}
+
+					
+						if (idx == 2) // Peers
+						{
+							auto Peers = P.FindName(L"PivotPeers").as<PivotItem>();
+							auto LPeers = Peers.FindName(L"PeersView").as<ListView>();
+							LPeers.Items().Clear();
+							vector<lt::peer_info> pi;
+							h->get_peer_info(pi);
+
+							for (auto& pee : pi)
+							{
+								auto i2 = LR"(
+				<StackPanel xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+				<TextBlock Text="%s" />
+				</StackPanel>
+)";
+
+								ystring s2;
+								s2.Format(i2, ystring(pee.client.c_str()).c_str());
+								try
+								{
+									auto x2 = XamlReader::Load(s2);
+									LPeers.Items().Append(x2);
+								}
+								catch (...)
+								{
+								}
+							}
+						}
+					});
+
+				
 				}
 				else
 					pitt.Visibility(Xaml::Visibility::Collapsed);
@@ -1984,7 +2019,6 @@ int __stdcall WinMain(HINSTANCE h, HINSTANCE, LPSTR t, int)
 		DispatchMessage(&msg);
 		}
 
-	sql = 0;
 	End = true;
 	for (int i = 0; i < 10; i++)
 	{
@@ -1992,6 +2026,7 @@ int __stdcall WinMain(HINSTANCE h, HINSTANCE, LPSTR t, int)
 			break;
 		Sleep(1000);
 	}
+	sql = 0;
 	CloseHandle(hm);
 	return 0;
 }
