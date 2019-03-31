@@ -10,6 +10,7 @@ https://www.turboirc.com/ft, prebuild x64/x86 static binaries with auto update
 * UWPLib - https://github.com/WindowsNT/uwplib
 * MT - https://github.com/WindowsNT/mt
 * XML - https://github.com/WindowsNT/xml
+* WinToast - https://github.com/mohabouje/WinToast
 * OpenSSL
 * SQLite3
 * Boost
@@ -19,7 +20,6 @@ https://www.turboirc.com/ft, prebuild x64/x86 static binaries with auto update
 * Antimalware Scan Interface: https://docs.microsoft.com/en-us/windows/desktop/AMSI/antimalware-scan-interface-portal
 
 # To Build
-
 You need:
 * Boost
 * LibTorrent

@@ -885,7 +885,8 @@ void UpdateListView2(lt::torrent_status* st)
 
 					<StackPanel Orientation="Horizontal" Margin="0,10,0,0">
 						<Button Content="Open folder" Name="OP%S" Margin="0,0,10,0"/>
-						<Button Content="Pause/Resume" Name="PR%S" Margin="0,0,10,0"/>
+						<Button Content="Pause" Name="PP%S" Margin="0,0,10,0"/>
+						<Button Content="Resume" Name="RR%S" Margin="0,0,10,0"/>
 <Button Content="Priority"  Margin="0,0,10,0">
     <Button.Flyout>
         <MenuFlyout>
@@ -904,7 +905,7 @@ void UpdateListView2(lt::torrent_status* st)
 
 							ystring s1;
 							s1.Format(i1, st->name.c_str(), (float)(st->total / 1048576.0f), ha.c_str(), ha.c_str(), ha.c_str(),
-								 ha.c_str(), ha.c_str(), ha.c_str(), ha.c_str()
+								 ha.c_str(), ha.c_str(), ha.c_str(), ha.c_str(), ha.c_str()
 							);
 
 							auto x1 = XamlReader::Load(s1);
@@ -972,26 +973,21 @@ void UpdateListView2(lt::torrent_status* st)
 							});
 
 							// PR Handler
-							Info.Content().as<StackPanel>().FindName(ystring().Format(L"PR%S", ha.c_str())).as<Button>().Click(
+							Info.Content().as<StackPanel>().FindName(ystring().Format(L"PP%S", ha.c_str())).as<Button>().Click(
 								[](const IInspectable& sender, const RoutedEventArgs& r)
 							{
 								Button mf = sender.as<Button>();
 								wstring t = mf.Name().c_str();
 								string hash = ystring(t.c_str() + 2).a_str();
-
-
 								th.readlock([&](const vector<lt::torrent_handle>& v) {
 									for (auto& t : v)
 									{
 										if (hs(t.info_hash()) == hash)
 										{
-											// Resume this torrent
 											reqs.writelock([&](queue<TREQUEST>& r)
 											{
 												TREQUEST rr;
 												rr.Type = 2;
-												if (t.status().paused)
-													rr.Type = 3;
 												rr.h = hash;
 												r.push(rr);
 											});
@@ -999,8 +995,31 @@ void UpdateListView2(lt::torrent_status* st)
 										}
 									}
 								});
-							}
-							);
+							});
+							Info.Content().as<StackPanel>().FindName(ystring().Format(L"RR%S", ha.c_str())).as<Button>().Click(
+								[](const IInspectable& sender, const RoutedEventArgs& r)
+							{
+								Button mf = sender.as<Button>();
+								wstring t = mf.Name().c_str();
+								string hash = ystring(t.c_str() + 2).a_str();
+								th.readlock([&](const vector<lt::torrent_handle>& v) {
+									for (auto& t : v)
+									{
+										if (hs(t.info_hash()) == hash)
+										{
+											reqs.writelock([&](queue<TREQUEST>& r)
+											{
+												TREQUEST rr;
+												rr.Type = 3;
+												rr.h = hash;
+												r.push(rr);
+											});
+
+										}
+									}
+								});
+							});
+
 						}
 
 
@@ -1026,7 +1045,8 @@ void UpdateListView2(lt::torrent_status* st)
 								{
 									if (hs(t.info_hash()) == hash)
 									{
-										ystring pa = t.status().save_path;
+										auto& st = t.status();
+										ystring pa = st.save_path;
 										ShellExecute(MainWindow, L"open", pa.c_str(), 0, 0, SW_SHOWNORMAL);
 									}
 								}
@@ -1659,6 +1679,7 @@ void ViewMain()
 
 }
 
+TRAY tr;
 
 LRESULT CALLBACK Main_DP(HWND hh, UINT mm, WPARAM ww, LPARAM ll)
 	{
@@ -1723,6 +1744,8 @@ LRESULT CALLBACK Main_DP(HWND hh, UINT mm, WPARAM ww, LPARAM ll)
 		case WM_USER + 552:
 		{
 			lt::torrent_status* h2 = (lt::torrent_status*)ll;
+			if (ww == 1)
+				tr.Message(ystring(h2->name).c_str(), L"Torrent finished");
 			UpdateListView2(h2);
 			return 0;
 		}
@@ -1810,7 +1833,8 @@ LRESULT CALLBACK Main_DP(HWND hh, UINT mm, WPARAM ww, LPARAM ll)
 
 
 
-TRAY tr;
+#include <winrt/Windows.ui.notifications.h>
+
 int __stdcall WinMain(HINSTANCE h, HINSTANCE, LPSTR t, int)
 	{
 	TCHAR cd[1000];
@@ -1821,6 +1845,7 @@ int __stdcall WinMain(HINSTANCE h, HINSTANCE, LPSTR t, int)
 		*r1 = 0;
 		SetCurrentDirectory(cd);
 	}
+
 
 	WSADATA wData;
 	WSAStartup(MAKEWORD(2, 2), &wData);
@@ -1937,6 +1962,8 @@ int __stdcall WinMain(HINSTANCE h, HINSTANCE, LPSTR t, int)
 	wClass.lpszClassName = _T("CLASS");
 	wClass.hIconSm = hIcon1;
 	RegisterClassEx(&wClass);
+
+
 
 	MainWindow = CreateWindowEx(0,
 		_T("CLASS"),

@@ -10,6 +10,12 @@
     <ClCompile Include="sqlite3.c">
       <Filter>Code</Filter>
     </ClCompile>
+    <ClCompile Include="WinToast\src\wintoastlib.cpp">
+      <Filter>Code</Filter>
+    </ClCompile>
+    <ClCompile Include="toastfunc.cpp">
+      <Filter>Code</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Resources">

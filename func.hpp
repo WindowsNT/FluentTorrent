@@ -60,6 +60,8 @@ private:
 	NOTIFYICONDATA d;
 	UINT cbm;
 
+
+
 public:
 
 	BOOL TRAY::Ic(HICON hhh)
@@ -93,19 +95,15 @@ public:
 		d.cbSize = sizeof(d);
 		d.uVersion = NOTIFYICON_VERSION;
 		rv = Shell_NotifyIcon(NIM_SETVERSION, &d);
+
+		void ToastInit(const wchar_t* ttitle);
+		ToastInit(ttitle);
 	}
-	BOOL Message(const TCHAR* TI, const TCHAR* msg, int Timeout = 3000, DWORD flg = 0)
+	BOOL Message(const TCHAR* TI, const TCHAR* msg)
 	{
-		if (_tcslen(msg) < 254)
-			_tcscpy_s(d.szInfo, 254, msg);
-		if (TI && _tcslen(TI) < 64)
-			_tcscpy_s(d.szInfoTitle, 64, TI);
-
-		d.uTimeout = Timeout; // in milliseconds
-		d.uFlags = flg | NIF_INFO | NIF_MESSAGE | NIF_ICON;
-
-		BOOL rv = Shell_NotifyIcon(NIM_MODIFY, &d);
-		return rv;
+		void ShowToast(const wchar_t* ttitle, const wchar_t* msg);
+		ShowToast(ttitle, msg);
+		return true;
 	}
 	~TRAY()
 	{
