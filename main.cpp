@@ -497,7 +497,7 @@ void BitThread()
 	EndT1 = true;
 }
 
-void UpdateListView(lt::torrent_handle* e,WPARAM Rem = 0)
+void UpdateListView(const lt::torrent_handle* e,WPARAM Rem = 0)
 {
 	// Update the ListView
 	TopView nv = c->ins.as<TopView>();
@@ -535,13 +535,9 @@ void UpdateListView(lt::torrent_handle* e,WPARAM Rem = 0)
 		}
 
 		auto tinfo = e->torrent_file();
-
-
-
-
-			ystring sp;
-			sp = ystring().Format(
-				LR"(
+		ystring sp;
+		sp = ystring().Format(
+			LR"(
 		<StackPanel Name="StackPanel%S" Tag="%S"  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Orientation="Horizontal">
 			<StackPanel>
 				<TextBlock FontWeight="Bold" Name="Text%S" Text="" MaxWidth="380" TextWrapping="NoWrap" />
@@ -551,62 +547,12 @@ void UpdateListView(lt::torrent_handle* e,WPARAM Rem = 0)
 			<TextBlock Margin="20,0,0,0" Name="RA%S" Text="Please wait..." MaxWidth="100" Width="100" />
 			<TextBlock Margin="20,0,0,0" Name="PI%S" Text="" MaxWidth="40" Width="40" />
 		</StackPanel>)", h.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str());
-
-			auto ins = XamlReader::Load(sp.c_str());
-			its.Append(ins);
-
-/*			its.GetAt(its.Size() - 1).as<StackPanel>().FindName(ystring().Format(L"PR%S", h.c_str()).c_str()).as<MenuFlyoutItem>().Click([](const IInspectable&  sender, const RoutedEventArgs&) {
-				// Pause/Resume this
-				MenuFlyoutItem mf = sender.as<MenuFlyoutItem>();
-				wstring t = mf.Name().c_str();
-				// Pause this torrent
-				reqs.writelock([&](queue<TREQUEST>& r)
-				{
-					TREQUEST rr;
-					rr.Type = 2;
-					rr.h = ystring(t.c_str() + 2).a_str();
-					r.push(rr);
-				});
-
-			});
-
-			its.GetAt(its.Size() - 1).as<StackPanel>().FindName(ystring().Format(L"RP%S", h.c_str()).c_str()).as<MenuFlyoutItem>().Click([](const IInspectable&  sender, const RoutedEventArgs&) {
-				// Pause/Resume this
-				MenuFlyoutItem mf = sender.as<MenuFlyoutItem>();
-				wstring t = mf.Name().c_str();
-				// Resume this torrent
-				reqs.writelock([&](queue<TREQUEST>& r)
-				{
-					TREQUEST rr;
-					rr.Type = 3;
-					rr.h = ystring(t.c_str() + 2).a_str();
-					r.push(rr);
-				});
-
-			});
-
-			its.GetAt(its.Size() - 1).as<StackPanel>().FindName(ystring().Format(L"MD%S", h.c_str()).c_str()).as<MenuFlyoutItem>().Click([](const IInspectable&  sender, const RoutedEventArgs&) {
-				// Pause/Resume this
-				MenuFlyoutItem mf = sender.as<MenuFlyoutItem>();
-				wstring t = mf.Name().c_str();
-
-			
-				});
-
-
-
-
-
-			});
-
-*/
-
+		auto ins = XamlReader::Load(sp.c_str());
+		its.Append(ins);
 	}
 	catch (...)
 	{
-
 	}
-
 }
 
 
@@ -1534,6 +1480,46 @@ void ViewMain()
 		}
 
 	});
+
+	auto sortfunc = [](const IInspectable& ins, const RoutedEventArgs& r)
+	{
+		TopView tv = c->ins.as<TopView>();
+		auto lv = tv.FindName(L"torrlist").as<ListView>();
+		lv.Items().Clear();
+
+		vector<lt::torrent_handle> ex;
+		th.readlock([&](const vector<lt::torrent_handle>& e) {
+			ex = e;
+		});
+
+		// Sort ex
+		wstring n =ins.as<MenuFlyoutItem>().Name().c_str();
+		if (n == wstring(L"sort_name"))
+		{
+			std::sort(ex.begin(), ex.end(), [](const lt::torrent_handle& h1, const lt::torrent_handle& h2) -> bool
+			{
+				if (h1.status().name < h2.status().name)
+					return true;
+				return false;
+			});
+		}
+		if (n == wstring(L"sort_priority"))
+		{
+			std::sort(ex.begin(), ex.end(), [](const lt::torrent_handle& h1, const lt::torrent_handle& h2) -> bool
+			{
+				if (h1.queue_position() < h2.queue_position())
+					return true;
+				return false;
+			});
+		}
+
+		for (auto& ee : ex)
+			UpdateListView(&ee, 0);
+
+	};
+
+	x1.FindName(L"sort_name").as<MenuFlyoutItem>().Click(sortfunc);
+	x1.FindName(L"sort_priority").as<MenuFlyoutItem>().Click(sortfunc);
 
 	auto AddURL = x1.FindName(L"btn1").as<Button>();
 	AddURL.Click([](const IInspectable& ins, const RoutedEventArgs& r)
