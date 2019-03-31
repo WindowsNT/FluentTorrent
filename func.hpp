@@ -764,3 +764,32 @@ BOOL RunAsAdmin(HWND hWnd, LPTSTR lpFile, LPTSTR lpParameters)
 	return X;
 }
 
+ystring SizeValue(unsigned long long s, bool ps = false)
+{
+	ystring f;
+	if (s < 1000000)
+	{
+		// KB
+		double d = ((double)s / 1024.0);
+		f.Format(L"%.1f KB", d);
+	}
+	else
+		if (s < 1048576000)
+		{
+			// MB
+			s /= 1024;
+			double d = ((double)s / 1024.0);
+			f.Format(L"%.1f MB", d);
+		}
+		else
+		{
+			// GB
+			s /= 1024;
+			s /= 1024;
+			double d = ((double)s / 1024.0);
+			f.Format(L"%.1f GB", d);
+		}
+	if (ps)
+		f += L"/s";
+	return f;
+}

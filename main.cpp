@@ -196,6 +196,8 @@ void BitThread()
 		| lt::alert::connect_notification
 	);
 
+	pack.set_str(lt::settings_pack::user_agent, "FluentTorrent/1.0");
+
 	int PN = _wtoi(Setting("TCPPORT", "7008").c_str());
 	if (PN > 0)
 	{
@@ -921,10 +923,7 @@ void UpdateListView2(lt::torrent_status* st)
 						ystring comment;
 						shared_ptr<const lt::torrent_info> f = st->torrent_file.lock();
 						if (f)
-						{
 							comment = f->comment();
-							
-						}
 
 							
 						auto pi = sp.FindName(ystring().Format(L"PI%S", ha.c_str())).as<TextBlock>();
@@ -965,7 +964,7 @@ void UpdateListView2(lt::torrent_status* st)
 			
 					<RichTextBlock>
 						<Paragraph>Name: <Run FontStyle="Italic" FontWeight="Bold">%S</Run></Paragraph>
-						<Paragraph>Size: <Run FontStyle="Italic" FontWeight="Bold">%.1f MB</Run></Paragraph>
+						<Paragraph>Size: <Run FontStyle="Italic" FontWeight="Bold">%s</Run></Paragraph>
 						<Paragraph>Comments: %s</Paragraph>
 					</RichTextBlock>
 
@@ -990,7 +989,7 @@ void UpdateListView2(lt::torrent_status* st)
 )";
 
 							ystring s1;
-							s1.Format(i1, st->name.c_str(), (float)(st->total / 1048576.0f), comment.c_str(), ha.c_str(), ha.c_str(), ha.c_str(),
+							s1.Format(i1, st->name.c_str(), SizeValue(st->total).c_str(), comment.c_str(), ha.c_str(), ha.c_str(), ha.c_str(),
 								 ha.c_str(), ha.c_str(), ha.c_str(), ha.c_str(), ha.c_str()
 							);
 
@@ -1170,12 +1169,12 @@ void UpdateListView2(lt::torrent_status* st)
 
 				auto kbt = sp.FindName(ystring().Format(L"KB%S", ha.c_str())).as<TextBlock>();
 				int Perc = (int)((100 * st->total_done) / st->total);
-				if (Perc >= 100)	
-					kbt.Text(ystring().Format(L"Finishing... %.1f/%.1f MB", st->total_done / 1048576.0f, st->total / 1048576.0f).c_str());
+				if (Perc >= 100)
+					kbt.Text(ystring().Format(L"Finishing..."));
 				else
-					kbt.Text(ystring().Format(L"%u%% %.1f/%.1f MB", Perc, st->total_done / 1048576.0f, st->total / 1048576.0f).c_str());
+					kbt.Text(ystring().Format(L"%u%% %s/%s", Perc, SizeValue(st->total_done).c_str(), SizeValue(st->total).c_str()));
 
-				ra.Text(ystring().Format(L"%.1f KB/s", st->download_rate/ 1024.0f));
+				ra.Text(ystring().Format(L"%s", SizeValue(st->download_rate,true).c_str()));
 
 			}
 			else
@@ -1405,37 +1404,8 @@ void ViewMain()
 	PickTorrentDir.Content(winrt::box_value(ystring().Format(L"Saving to: %s", Setting("TORRENTDIR", ".\\TORRENTS").c_str())));
 
 
-#ifndef USE_NAVIGATIONVIEW
-	auto SettingsBack = x1.FindName(L"btnoptionsback").as<Button>();
-	SettingsBack.Click([](const IInspectable& ins, const RoutedEventArgs& r)
-	{
-		auto spm = c->ins.as<TopView>().FindName(L"MainView").as<StackPanel>();
-		auto sp = c->ins.as<TopView>().FindName(L"Options").as<StackPanel>();
-		sp.Visibility(Visibility::Collapsed);
-		spm.Visibility(Visibility::Visible);
-	});
-#endif
 
-#ifndef USE_NAVIGATIONVIEW
-	auto SettingsB = x1.FindName(L"btns").as<Button>();
-	SettingsB.Click([](const IInspectable& ins, const RoutedEventArgs& r)
-	{
-		auto spm = c->ins.as<TopView>().FindName(L"MainView").as<StackPanel>();
-		auto sp = c->ins.as<TopView>().FindName(L"Options").as<StackPanel>();
-		if (sp.Visibility() == Visibility::Visible)
-		{
-			sp.Visibility(Visibility::Collapsed);
-			spm.Visibility(Visibility::Visible);
-		}
-		else
-		{
-			sp.Visibility(Visibility::Visible);
-			spm.Visibility(Visibility::Collapsed);
-		}
-	});
-#endif
-
-		// Magnet Link Button
+	// Magnet Link Button
 	auto sp = c->ins.as<TopView>().FindName(L"Options").as<StackPanel>();
 	auto cbi = sp.FindName(L"CB_MagnetLink").as<CheckBox>();
 	if (IsMagnet())
