@@ -16,6 +16,7 @@
 #include <windows.h>
 #include <wininet.h>
 #include <process.h>
+#include <pathcch.h>
 #include <commctrl.h>
 #include <stdio.h>
 #include <shellapi.h>

@@ -7,6 +7,7 @@
 #pragma comment(lib,"Dbghelp.lib")
 #pragma comment(lib,"Iphlpapi.lib")
 #pragma comment(lib,"Amsi.lib")
+#pragma comment(lib,"pathcch.lib")
 
 
 #pragma comment(linker,"\"/manifestdependency:type='win32' \

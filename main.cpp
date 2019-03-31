@@ -552,10 +552,11 @@ void UpdateListView(const lt::torrent_handle* e,WPARAM Rem = 0)
 				<TextBlock FontWeight="Bold" Name="Text%S" Text="" MaxWidth="380" TextWrapping="NoWrap" />
 				<ProgressBar Margin="0,0,0,0" Name="Prg%S" Value="0" Maximum="100" Width="400" IsIndeterminate="true"/>
 			</StackPanel>
+			<TextBlock Margin="20,0,0,0" Name="KA%S" Text="" MaxWidth="50" Width="50" />
 			<TextBlock Margin="20,0,0,0" Name="KB%S" Text="Please wait..." MaxWidth="150" Width="150" />
 			<TextBlock Margin="20,0,0,0" Name="RA%S" Text="Please wait..." MaxWidth="100" Width="100" />
 			<TextBlock Margin="20,0,0,0" Name="PI%S" Text="" MaxWidth="40" Width="40" />
-		</StackPanel>)", h.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str());
+		</StackPanel>)", h.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str());
 		using namespace winrt::Windows::UI::Xaml::Markup;
 		auto ins = XamlReader::Load(sp.c_str());
 		its.Append(ins);
@@ -1132,6 +1133,29 @@ void UpdateListView2(lt::torrent_status* st)
 									{
 										auto& st = t.status();
 										ystring pa = st.save_path;
+
+										// Check if the files have another path inside
+										vector<wstring> fils;
+										size_t n = t.torrent_file()->files().num_files();
+										for (int iif = 0; iif < n; iif++)
+										{
+											ystring np = t.torrent_file()->files().file_path(iif).c_str();
+											if (wcschr(np.c_str(), '\\') != 0)
+											{
+												wchar_t p2[1000] = { 0 };
+												wcscpy_s(p2, 1000, np.c_str());
+												auto w1 = wcschr(p2, '\\'); 
+												*w1 = 0;
+
+												ystring np = Setting("TORRENTDIR", ".\\TORRENTS").c_str();
+												np += L"\\";
+												np += p2;
+
+												pa = np;
+												break;
+											}
+										}
+
 										ShellExecute(MainWindow, L"open", pa.c_str(), 0, 0, SW_SHOWNORMAL);
 									}
 								}
@@ -1167,12 +1191,16 @@ void UpdateListView2(lt::torrent_status* st)
 				prg.Maximum((double)st->total);
 				prg.Value((double)st->total_done);
 
+				auto kat = sp.FindName(ystring().Format(L"KA%S", ha.c_str())).as<TextBlock>();
 				auto kbt = sp.FindName(ystring().Format(L"KB%S", ha.c_str())).as<TextBlock>();
 				int Perc = (int)((100 * st->total_done) / st->total);
 				if (Perc >= 100)
-					kbt.Text(ystring().Format(L"Finishing..."));
+					kat.Text(ystring().Format(L"Finishing..."));
 				else
-					kbt.Text(ystring().Format(L"%u%% %s/%s", Perc, SizeValue(st->total_done).c_str(), SizeValue(st->total).c_str()));
+				{
+					kat.Text(ystring().Format(L"%u%%", Perc ));
+					kbt.Text(ystring().Format(L"%s/%s",  SizeValue(st->total_done).c_str(), SizeValue(st->total).c_str()));
+				}
 
 				ra.Text(ystring().Format(L"%s", SizeValue(st->download_rate,true).c_str()));
 
@@ -1632,6 +1660,20 @@ void ViewMain()
 
 	auto lv = x1.FindName(L"torrlist").as<ListView>();
 
+/*	lv.DragItemsStarting([](const IInspectable&  sender, const DragItemsStartingEventHandler &)
+	{
+		TopView nv = c->ins.as<TopView>();
+		auto lv = sender.as<ListView>();
+
+	});*/
+	lv.DragItemsCompleted([](const IInspectable&  sender, const DragItemsCompletedEventArgs& drg)
+	{
+		TopView nv = c->ins.as<TopView>();
+		auto lv = sender.as<ListView>();
+		//drg.DropResult.
+
+	});
+
 	lv.SelectionChanged([](const IInspectable&  sender, const RoutedEventArgs&)
 	{
 		TopView nv = c->ins.as<TopView>();
@@ -1798,8 +1840,8 @@ LRESULT CALLBACK Main_DP(HWND hh, UINT mm, WPARAM ww, LPARAM ll)
 		case WM_CREATE:
 			{
 			hX = CreateWindowEx(0, L"UWP_Custom", L"", WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, hh, (HMENU)901, 0, 0);
-			SendMessage(hh, WM_SIZE, 0, 0);
 			ViewMain();
+			SendMessage(hh, WM_SIZE, 0, 0);
 			std::thread t(BitThread);			t.detach();
 			std::thread tt(AVThread);			tt.detach();
 			break;
@@ -1816,7 +1858,19 @@ LRESULT CALLBACK Main_DP(HWND hh, UINT mm, WPARAM ww, LPARAM ll)
 			}
 			SetWindowPos(hX, 0, 0, 0, rc.right, rc.bottom, SWP_SHOWWINDOW);
 			if (c)
+			{
 				SetWindowPos(c->hwndDetailXamlIsland, 0, 0, 0, rc.right, rc.bottom, SWP_SHOWWINDOW);
+				GridLength v;
+				v.Value = rc.bottom - 150;
+				v.GridUnitType = GridUnitType::Pixel;
+				if (v.Value > 0)
+				{
+					c->ins.as<TopView>().FindName(L"RowDef1").as<RowDefinition>().Height(v);
+					c->ins.as<TopView>().FindName(L"RowDef2").as<RowDefinition>().Height(v);
+					c->ins.as<TopView>().FindName(L"RowDef3").as<RowDefinition>().Height(v);
+				}
+
+			}
 			return 0;
 		}
 
