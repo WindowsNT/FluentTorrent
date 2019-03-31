@@ -106,7 +106,6 @@ HINSTANCE hAppInstance = 0;
 HICON hIcon1 = 0;
 const wchar_t* ttitle = L"Fluent Torrent";
 using namespace std;
-wstring LVSelected;
 shared_ptr<lt::session> t_session;
 UINT umsg = 0;
 
@@ -131,7 +130,7 @@ using clk = std::chrono::steady_clock;
 string hs(const lt::sha1_hash& hh)
 {
 	auto sz = hh.size();
-	vector<char> d(sz*2 + 1);
+	vector<char> d(sz * 2 + 1);
 	for (int i = 0; i < sz; i++)
 	{
 		char r[5] = { 0 };
@@ -148,6 +147,9 @@ UWPLIB::UWPCONTROL* c = 0;
 #include "func.hpp"
 #include <queue>
 
+ystring xaml;
+ystring txaml;
+
 struct TREQUEST
 {
 	int Type = 0; //  1 Add Magnet, 2 Pause/Resume, 3 Resume, 4 Delete, 5 Add File, 6 delete + torrent
@@ -161,13 +163,13 @@ bool EndT1 = false;
 bool EndT2 = false;
 
 
-ystring Setting(const char* k, const char* def = "",bool W = false)
+ystring Setting(const char* k, const char* def = "", bool W = false)
 {
 
 	if (W)
 	{
 		sqlite::query q(sql->h(), "DELETE FROM SETTINGS WHERE NAME = ?");
-		q.BindText(1, k,(int) strlen(k));
+		q.BindText(1, k, (int)strlen(k));
 		q.R();
 		sqlite::query q2(sql->h(), "INSERT INTO SETTINGS (NAME,VALUE) VALUES (?,?)");
 		q2.BindText(1, k, (int)strlen(k));
@@ -215,10 +217,10 @@ void BitThread()
 	int UL = _wtoi(Setting("UPLOADLIMIT", "0").c_str());
 	if (UL > 0) // In KB
 	{
-		pack.set_int(lt::settings_pack::upload_rate_limit, UL*1024);
+		pack.set_int(lt::settings_pack::upload_rate_limit, UL * 1024);
 	}
 
-//	download_rate_limit
+	//	download_rate_limit
 
 	pack.set_str(lt::settings_pack::user_agent, lt::generate_fingerprint("FT", 1));
 	lt::session ses(pack);
@@ -496,74 +498,15 @@ void BitThread()
 			}
 		}
 	});
-/*
-	lt::entry e;
-	ses.save_state(e);
-	stringstream out;
-	lt::bencode(std::ostream_iterator<char>(out), e);
-	string b = XML3::Char2Base64((const char*)out.str().data(), out.str().size());
-	Setting("STATE", b.c_str(), true);
-*/
+	/*
+		lt::entry e;
+		ses.save_state(e);
+		stringstream out;
+		lt::bencode(std::ostream_iterator<char>(out), e);
+		string b = XML3::Char2Base64((const char*)out.str().data(), out.str().size());
+		Setting("STATE", b.c_str(), true);
+	*/
 	EndT1 = true;
-}
-
-void UpdateListView(const lt::torrent_handle* e,WPARAM Rem = 0)
-{
-	// Update the ListView
-	TopView nv = c->ins.as<TopView>();
-	try
-	{
-		auto lv = nv.FindName(L"torrlist").as<ListView>();
-		auto its = lv.Items();
-//		auto i = e->id();
-		auto h = hs(e->info_hash());
-
-		if (Rem)
-		{
-			h = *(string*)Rem;
-			for (uint32_t i = 0; i < its.Size(); i++)
-			{
-				wstring n = its.GetAt(i).as<StackPanel>().Name().c_str();
-				string wi = ystring(n.c_str() + 10);
-				if (wi == h)
-				{
-					its.RemoveAt(i);
-					sqlite::query q(sql->h(),"DELETE FROM TORRENTS WHERE HASH = ?");
-					q.BindText(1, h.c_str(), h.length());
-					q.R();
-
-					// Hide the pivot
-					StackPanel pvs = nv.FindName(L"pivotstack").as<StackPanel>();
-					Pivot pitt = pvs.Children().GetAt(0).as<Pivot>();
-					pitt.Visibility(Visibility::Collapsed);
-
-
-					break;
-				}
-			}
-			return;
-		}
-
-		ystring sp;
-		sp = ystring().Format(
-			LR"(
-		<StackPanel Name="StackPanel%S" Tag="%S"  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Orientation="Horizontal">
-			<StackPanel>
-				<TextBlock FontWeight="Bold" Name="Text%S" Text="" MaxWidth="380" TextWrapping="NoWrap" />
-				<ProgressBar Margin="0,0,0,0" Name="Prg%S" Value="0" Maximum="100" Width="400" IsIndeterminate="true"/>
-			</StackPanel>
-			<TextBlock Margin="20,0,0,0" Name="KA%S" Text="" MaxWidth="50" Width="50" />
-			<TextBlock Margin="20,0,0,0" Name="KB%S" Text="Please wait..." MaxWidth="150" Width="150" />
-			<TextBlock Margin="20,0,0,0" Name="RA%S" Text="Please wait..." MaxWidth="100" Width="100" />
-			<TextBlock Margin="20,0,0,0" Name="PI%S" Text="" MaxWidth="40" Width="40" />
-		</StackPanel>)", h.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str());
-		using namespace winrt::Windows::UI::Xaml::Markup;
-		auto ins = XamlReader::Load(sp.c_str());
-		its.Append(ins);
-	}
-	catch (...)
-	{
-	}
 }
 
 
@@ -626,7 +569,7 @@ void DeleteTorrent(const char *hss)
 					auto b11 = dlg.FindName(L"TorrDelButton2").as<Button>();
 					b11.Click([](const IInspectable& ins, const RoutedEventArgs& r)
 					{
-					TopView sp = c->ins.as<TopView>();
+						TopView sp = c->ins.as<TopView>();
 						auto dlg = sp.FindName(L"DeleteTorrentDlg").as<ContentDialog>();
 						dlg.Hide();
 
@@ -649,7 +592,7 @@ void DeleteTorrent(const char *hss)
 	});
 }
 
-tlock<queue<tuple<string,vector<wstring>,string>>> scanqueue;
+tlock<queue<tuple<string, vector<wstring>, string>>> scanqueue;
 void AVThread()
 {
 	HAMSICONTEXT h = 0;
@@ -665,7 +608,7 @@ void AVThread()
 		vector<wstring> files;
 		string hash;
 		string tn;
-		scanqueue.writelock([&](queue<tuple<string, vector<wstring>,string>>& vv) {
+		scanqueue.writelock([&](queue<tuple<string, vector<wstring>, string>>& vv) {
 			if (vv.empty())
 				return;
 			auto& m = vv.front();
@@ -680,7 +623,7 @@ void AVThread()
 
 
 		ystring y;
-		y.Format(L"Scanning %s...",ystring(tn.c_str()).c_str());
+		y.Format(L"Scanning %s...", ystring(tn.c_str()).c_str());
 		SendMessage(MainWindow, WM_USER + 554, 0, (LPARAM)y.c_str());
 
 		bool FoundMalware = false;
@@ -690,21 +633,21 @@ void AVThread()
 			if (m.size() == 0)
 				continue;
 			AMSI_RESULT ar;
-			y.Format(L"Scanning [%s] %s...", ystring(tn.c_str()).c_str(),files[i].c_str());
+			y.Format(L"Scanning [%s] %s...", ystring(tn.c_str()).c_str(), files[i].c_str());
 			SendMessage(MainWindow, WM_USER + 554, 0, (LPARAM)y.c_str());
 			if (FAILED(AmsiScanBuffer(h, (PVOID)m.operator const char *(), m.size(), files[i].c_str(), 0, &ar)))
 				continue;
 			if (AmsiResultIsMalware(ar))
 			{
 				y.Format(L"Found malware\r\n %s", files[i].c_str());
-				SendMessage(MainWindow, WM_USER + 554,(WPARAM)y.c_str(),0);
+				SendMessage(MainWindow, WM_USER + 554, (WPARAM)y.c_str(), 0);
 				FoundMalware = true;
 			}
 		}
 
 		if (FoundMalware)
 		{
-		//	MessageBox(MainWindow, L"Torrent contains malware", ttitle, MB_OK);
+			//	MessageBox(MainWindow, L"Torrent contains malware", ttitle, MB_OK);
 		}
 		else
 		{
@@ -716,7 +659,7 @@ void AVThread()
 		y.Format(L"Scanning %s finished.", ystring(tn.c_str()).c_str());
 		SendMessage(MainWindow, WM_USER + 554, 0, (LPARAM)y.c_str());
 
-		
+
 	}
 	EndT2 = true;
 	AmsiUninitialize(h);
@@ -730,7 +673,7 @@ void AVScan(lt::torrent_handle t)
 	string hh = hs(t.info_hash());
 	size_t n = t.torrent_file()->files().num_files();
 
-	
+
 	string tn = t.status().name;
 	for (int iif = 0; iif < n; iif++)
 	{
@@ -741,9 +684,9 @@ void AVScan(lt::torrent_handle t)
 		fils.push_back(np);
 	}
 
-	scanqueue.writelock([&](queue<tuple<string, vector<wstring>,string>>& vv) {
+	scanqueue.writelock([&](queue<tuple<string, vector<wstring>, string>>& vv) {
 
-		tuple<string, vector<wstring>,string> a;
+		tuple<string, vector<wstring>, string> a;
 		get<0>(a) = hh;
 		get<1>(a) = fils;
 		get<2>(a) = tn;
@@ -755,457 +698,48 @@ void AVScan(lt::torrent_handle t)
 }
 
 
-wstring PrevLV;
-bool PittUpdates = false;
 
-void PittSelection(const IInspectable sender, RoutedEventArgs  const &) 
-{
-	using namespace winrt::Windows::UI::Xaml::Markup;
-	auto P = sender.as<Pivot>();
-	int idx = P.SelectedIndex();
-	if (idx == 0)
-		return; //
-
-	if (LVSelected.empty())
-		return;
-
-	// Find Current Torrent
-	const lt::torrent_handle* h = 0;
-	th.readlock([&](const vector<lt::torrent_handle>& v) {
-
-		for (auto& vv : v)
-		{
-			auto h1 = hs(vv.info_hash());
-			string h2 = ystring(LVSelected.c_str()).a_str();
-			if (h1 == h2)
-			{
-				h = &vv;
-				break;
-			}
-		}
-	});
-	if (!h)
-		return;
-
-	if (idx == 1) // Files
-	{
-		auto Files = P.FindName(L"PivotFiles").as<PivotItem>();
-		auto LFiles = Files.FindName(L"FilesView").as<ListView>();
-		LFiles.Items().Clear();
-		auto tf = h->torrent_file();
-		if (tf)
-		{
-			size_t n = tf->files().num_files();
-			for (int iif = 0; iif < n; iif++)
-			{
-				auto np = tf->files().file_path(iif);
-				//								auto nn = tf->files().file_name(iif);
-
-												// Remove &
-				for (auto& aa : np)
-				{
-					if (aa == '&')
-						aa = '_';
-				}
-
-
-				auto i2 = LR"(
-				<StackPanel xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-				<TextBlock Text="%S" />
-				</StackPanel>
-)";
-
-				ystring s2;
-				s2.Format(i2, np.c_str());
-				try
-				{
-					auto x2 = XamlReader::Load(s2);
-					LFiles.Items().Append(x2);
-				}
-				catch (...)
-				{
-				}
-			}
-		}
-	}
-
-
-	if (idx == 2) // Peers
-	{
-		auto Peers = P.FindName(L"PivotPeers").as<PivotItem>();
-		auto LPeers = Peers.FindName(L"PeersView").as<ListView>();
-		LPeers.Items().Clear();
-		vector<lt::peer_info> pi;
-		h->get_peer_info(pi);
-
-		for (auto& pee : pi)
-		{
-			auto i2 = LR"(
-				<StackPanel xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-				<TextBlock Text="%s" />
-				</StackPanel>
-)";
-
-			ystring s2;
-			s2.Format(i2, ystring(pee.client.c_str()).c_str());
-			try
-			{
-				auto x2 = XamlReader::Load(s2);
-				LPeers.Items().Append(x2);
-			}
-			catch (...)
-			{
-			}
-		}
-	}
-}
-
-void UpdateListView2(lt::torrent_status* st)
+void UpdateList(lt::torrent_status* st, StackPanel sp)
 {
 	using namespace winrt::Windows::UI::Xaml::Markup;
 	if (!st)
 		return;
-
-//	auto idx = st->handle.id();
 	string ha = hs(st->handle.info_hash());
-
-
-
 	TopView nv = c->ins.as<TopView>();
-	StackPanel pvs = nv.FindName(L"pivotstack").as<StackPanel>();
 
-	ystring fn;
-	fn.Format(L"%S", ha.c_str());
-
-	
-
-	// Update the ListView
-	try
+	auto prg = sp.FindName(ystring().Format(L"Prg%S", ha.c_str())).as<ProgressBar>();
+	auto ra = sp.FindName(ystring().Format(L"RA%S", ha.c_str())).as<TextBlock>();
+	ra.Text(L"");
+	if (st->paused)
 	{
-		auto lv = nv.FindName(L"torrlist").as<ListView>();
-		auto its = lv.Items();
-		for (uint32_t i = 0; i < its.Size(); i++)
+		prg.ShowPaused(true);
+		prg.IsIndeterminate(true);
+	}
+	else
+		if (st->state == lt::torrent_status::downloading)
 		{
-			auto sp = its.GetAt(i).as<StackPanel>();
-			ystring n =  winrt::unbox_value<winrt::hstring>(sp.Tag()).c_str();
-			if (n != fn)
-				continue;
+			prg.ShowPaused(false);
+			prg.IsIndeterminate(false);
+			prg.Maximum((double)st->total);
+			prg.Value((double)st->total_done);
 
+			//		st->
 
-			// Pivot
-			auto tf = st->handle.torrent_file();
-			Pivot pitt = pvs.Children().GetAt(0).as<Pivot>();
-			if (!PittUpdates)
-			{
-				PittUpdates = true;
-				pitt.SelectionChanged(PittSelection);
-			}
-
-			if (n == LVSelected)
-			{
-				auto SaveP = PrevLV;
-				PrevLV = LVSelected;
-				if (tf)
-				{
-					pitt.Visibility(Xaml::Visibility::Visible);
-					if (LVSelected != SaveP)
-					{
-						auto Info = pitt.FindName(L"PivotInfo").as<PivotItem>();
-						pitt.SelectedIndex(0);
-						auto ha = hs(st->info_hash);
-
-						bool Finished = false;
-						if (st->state == lt::torrent_status::seeding)
-							Finished = true;
-						// Create info
-
-						ystring comment;
-						shared_ptr<const lt::torrent_info> f = st->torrent_file.lock();
-						if (f)
-							comment = f->comment();
-
-							
-						auto pi = sp.FindName(ystring().Format(L"PI%S", ha.c_str())).as<TextBlock>();
-						auto jpos = st->handle.queue_position();
-						if (!Finished)
-							pi.Text(ystring().Format(L"%u", jpos));
-
-						if (Finished)
-						{
-							auto i1 = LR"(
-					<StackPanel xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
- xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-			
-					<RichTextBlock>
-						<Paragraph>Name: <Run FontStyle="Italic" FontWeight="Bold">%S</Run></Paragraph>
-						<Paragraph>Comments: %s</Paragraph>
-					</RichTextBlock>
-
-					<StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-						<Button Content="Open folder" Name="OP%S" Margin="0,0,10,0"/>
-						<Button Content="Delete" Name="MD%S" Margin="0,0,10,0"/>
-					</StackPanel>
-				
-					</StackPanel>
-)";
-
-							ystring s1;
-							s1.Format(i1, st->name.c_str(),  comment.c_str(),ha.c_str(),ha.c_str());
-
-							auto x1 = XamlReader::Load(s1);
-							Info.Content(x1);
-						}
-						else
-						{
-							auto i1 = LR"(
-					<StackPanel xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
- xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-			
-					<RichTextBlock>
-						<Paragraph>Name: <Run FontStyle="Italic" FontWeight="Bold">%S</Run></Paragraph>
-						<Paragraph>Size: <Run FontStyle="Italic" FontWeight="Bold">%s</Run></Paragraph>
-						<Paragraph>Comments: %s</Paragraph>
-					</RichTextBlock>
-
-					<StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-						<Button Content="Open folder" Name="OP%S" Margin="0,0,10,0"/>
-						<Button Content="Pause" Name="PP%S" Margin="0,0,10,0"/>
-						<Button Content="Resume" Name="RR%S" Margin="0,0,10,0"/>
-<Button Content="Priority"  Margin="0,0,10,0">
-    <Button.Flyout>
-        <MenuFlyout>
-            <MenuFlyoutItem Text="Top" Name="P0_%S"/>
-            <MenuFlyoutItem Text="Up" Name="P1_%S"/>
-            <MenuFlyoutItem Text="Down" Name="P2_%S"/>
-            <MenuFlyoutItem Text="Bottom"  Name="P3_%S"/>
-        </MenuFlyout>
-    </Button.Flyout>
-</Button>
-						<Button Content="Delete" Name="MD%S" Margin="0,0,10,0"/>
-					</StackPanel>
-				
-					</StackPanel>
-)";
-
-							ystring s1;
-							s1.Format(i1, st->name.c_str(), SizeValue(st->total).c_str(), comment.c_str(), ha.c_str(), ha.c_str(), ha.c_str(),
-								 ha.c_str(), ha.c_str(), ha.c_str(), ha.c_str(), ha.c_str()
-							);
-
-							auto x1 = XamlReader::Load(s1);
-							Info.Content(x1);
-						}
-
-						// PRi Handler
-						if (!Finished)
-						{
-							Info.Content().as<StackPanel>().FindName(ystring().Format(L"P0_%S", ha.c_str())).as<MenuFlyoutItem>().Click(
-								[](const IInspectable& sender, const RoutedEventArgs& r)
-							{
-								string hash = ystring(sender.as<MenuFlyoutItem>().Name().c_str() + 3).a_str();
-								th.readlock([&](const vector<lt::torrent_handle>& v) {
-									for (auto& t : v)
-									{
-										if (hs(t.info_hash()) == hash)
-										{
-											t.queue_position_top();
-										}
-									}
-								});
-							});
-							Info.Content().as<StackPanel>().FindName(ystring().Format(L"P1_%S", ha.c_str())).as<MenuFlyoutItem>().Click(
-								[](const IInspectable& sender, const RoutedEventArgs& r)
-							{
-								string hash = ystring(sender.as<MenuFlyoutItem>().Name().c_str() + 3).a_str();
-								th.readlock([&](const vector<lt::torrent_handle>& v) {
-									for (auto& t : v)
-									{
-										if (hs(t.info_hash()) == hash)
-										{
-											t.queue_position_up();
-										}
-									}
-								});
-							});
-							Info.Content().as<StackPanel>().FindName(ystring().Format(L"P2_%S", ha.c_str())).as<MenuFlyoutItem>().Click(
-								[](const IInspectable& sender, const RoutedEventArgs& r)
-							{
-								string hash = ystring(sender.as<MenuFlyoutItem>().Name().c_str() + 3).a_str();
-								th.readlock([&](const vector<lt::torrent_handle>& v) {
-									for (auto& t : v)
-									{
-										if (hs(t.info_hash()) == hash)
-										{
-											t.queue_position_down();
-										}
-									}
-								});
-							});
-							Info.Content().as<StackPanel>().FindName(ystring().Format(L"P3_%S", ha.c_str())).as<MenuFlyoutItem>().Click(
-								[](const IInspectable& sender, const RoutedEventArgs& r)
-							{
-								string hash = ystring(sender.as<MenuFlyoutItem>().Name().c_str() + 3).a_str();
-								th.readlock([&](const vector<lt::torrent_handle>& v) {
-									for (auto& t : v)
-									{
-										if (hs(t.info_hash()) == hash)
-										{
-											t.queue_position_bottom();
-										}
-									}
-								});
-							});
-
-							// PR Handler
-							Info.Content().as<StackPanel>().FindName(ystring().Format(L"PP%S", ha.c_str())).as<Button>().Click(
-								[](const IInspectable& sender, const RoutedEventArgs& r)
-							{
-								Button mf = sender.as<Button>();
-								wstring t = mf.Name().c_str();
-								string hash = ystring(t.c_str() + 2).a_str();
-								th.readlock([&](const vector<lt::torrent_handle>& v) {
-									for (auto& t : v)
-									{
-										if (hs(t.info_hash()) == hash)
-										{
-											reqs.writelock([&](queue<TREQUEST>& r)
-											{
-												TREQUEST rr;
-												rr.Type = 2;
-												rr.h = hash;
-												r.push(rr);
-											});
-
-										}
-									}
-								});
-							});
-							Info.Content().as<StackPanel>().FindName(ystring().Format(L"RR%S", ha.c_str())).as<Button>().Click(
-								[](const IInspectable& sender, const RoutedEventArgs& r)
-							{
-								Button mf = sender.as<Button>();
-								wstring t = mf.Name().c_str();
-								string hash = ystring(t.c_str() + 2).a_str();
-								th.readlock([&](const vector<lt::torrent_handle>& v) {
-									for (auto& t : v)
-									{
-										if (hs(t.info_hash()) == hash)
-										{
-											reqs.writelock([&](queue<TREQUEST>& r)
-											{
-												TREQUEST rr;
-												rr.Type = 3;
-												rr.h = hash;
-												r.push(rr);
-											});
-
-										}
-									}
-								});
-							});
-
-						}
-
-
-						// Delete Handler
-						Info.Content().as<StackPanel>().FindName(ystring().Format(L"MD%S", ha.c_str())).as<Button>().Click(
-							[](const IInspectable& sender, const RoutedEventArgs& r)
-						{
-							Button mf = sender.as<Button>();
-							wstring t = mf.Name().c_str();
-							DeleteTorrent(ystring(t.c_str() + 2).a_str());
-						}
-						);
-
-						// Open Folder Handler
-						Info.Content().as<StackPanel>().FindName(ystring().Format(L"OP%S", ha.c_str())).as<Button>().Click(
-							[](const IInspectable& sender, const RoutedEventArgs& r)
-						{
-							Button mf = sender.as<Button>();
-							wstring t = mf.Name().c_str();
-							string hash = ystring(t.c_str() + 2).a_str();
-							th.readlock([&](const vector<lt::torrent_handle>& v) {
-								for (auto& t : v)
-								{
-									if (hs(t.info_hash()) == hash)
-									{
-										auto& st = t.status();
-										ystring pa = st.save_path;
-
-										// Check if the files have another path inside
-										vector<wstring> fils;
-										size_t n = t.torrent_file()->files().num_files();
-										for (int iif = 0; iif < n; iif++)
-										{
-											ystring np = t.torrent_file()->files().file_path(iif).c_str();
-											if (wcschr(np.c_str(), '\\') != 0)
-											{
-												wchar_t p2[1000] = { 0 };
-												wcscpy_s(p2, 1000, np.c_str());
-												auto w1 = wcschr(p2, '\\'); 
-												*w1 = 0;
-
-												ystring np = Setting("TORRENTDIR", ".\\TORRENTS").c_str();
-												np += L"\\";
-												np += p2;
-
-												pa = np;
-												break;
-											}
-										}
-
-										ShellExecute(MainWindow, L"open", pa.c_str(), 0, 0, SW_SHOWNORMAL);
-									}
-								}
-							});
-
-						}
-						);
-
-
-					}
-
-
-				
-				}
-				else
-					pitt.Visibility(Xaml::Visibility::Collapsed);
-			}
-			
-
-			auto prg = sp.FindName(ystring().Format(L"Prg%S", ha.c_str())).as<ProgressBar>();
-			auto ra = sp.FindName(ystring().Format(L"RA%S", ha.c_str())).as<TextBlock>();
-			ra.Text(L"");
-			if (st->paused)
-			{
-				prg.ShowPaused(true);
-				prg.IsIndeterminate(true);
-			}
+			auto kat = sp.FindName(ystring().Format(L"KA%S", ha.c_str())).as<TextBlock>();
+			auto kbt = sp.FindName(ystring().Format(L"KB%S", ha.c_str())).as<TextBlock>();
+			int Perc = (int)((100 * st->total_done) / st->total);
+			if (Perc >= 100)
+				kat.Text(ystring().Format(L"Finishing..."));
 			else
-			if (st->state == lt::torrent_status::downloading)
 			{
-				prg.ShowPaused(false);
-				prg.IsIndeterminate(false);
-				prg.Maximum((double)st->total);
-				prg.Value((double)st->total_done);
-
-				auto kat = sp.FindName(ystring().Format(L"KA%S", ha.c_str())).as<TextBlock>();
-				auto kbt = sp.FindName(ystring().Format(L"KB%S", ha.c_str())).as<TextBlock>();
-				int Perc = (int)((100 * st->total_done) / st->total);
-				if (Perc >= 100)
-					kat.Text(ystring().Format(L"Finishing..."));
-				else
-				{
-					kat.Text(ystring().Format(L"%u%%", Perc ));
-					kbt.Text(ystring().Format(L"%s/%s",  SizeValue(st->total_done).c_str(), SizeValue(st->total).c_str()));
-				}
-
-				ra.Text(ystring().Format(L"%s", SizeValue(st->download_rate,true).c_str()));
-
+				kat.Text(ystring().Format(L"%u%%", Perc));
+				kbt.Text(ystring().Format(L"%s/%s", SizeValue(st->total_done).c_str(), SizeValue(st->total).c_str()));
 			}
-			else
+
+			ra.Text(ystring().Format(L"%s", SizeValue(st->download_rate, true).c_str()));
+
+		}
+		else
 			if (st->state == lt::torrent_status::seeding)
 			{
 				prg.ShowPaused(false);
@@ -1220,37 +754,448 @@ void UpdateListView2(lt::torrent_status* st)
 				if (st->state == lt::torrent_status::checking_files)
 					sp.FindName(ystring().Format(L"KB%S", ha.c_str())).as<TextBlock>().Text(L"Checking files...");
 				else
-				if (st->state == lt::torrent_status::downloading_metadata)
-					sp.FindName(ystring().Format(L"KB%S", ha.c_str())).as<TextBlock>().Text(L"Getting metadata...");
-				else
-					sp.FindName(ystring().Format(L"KB%S", ha.c_str())).as<TextBlock>().Text(L"Preparing...");
+					if (st->state == lt::torrent_status::downloading_metadata)
+						sp.FindName(ystring().Format(L"KB%S", ha.c_str())).as<TextBlock>().Text(L"Getting metadata...");
+					else
+						sp.FindName(ystring().Format(L"KB%S", ha.c_str())).as<TextBlock>().Text(L"Preparing...");
 			}
 
-//			if (st->state != lt::torrent_status::downloading)
+	auto txt = sp.FindName(ystring().Format(L"Text%S", ha.c_str())).as<TextBlock>();
+	txt.Text(ystring(st->name.c_str()).c_str());
+
+
+}
+
+void UpdateHandlers(lt::torrent_status* st, StackPanel sp)
+{
+	using namespace winrt::Windows::UI::Xaml::Markup;
+	if (!st)
+		return;
+	string ha = hs(st->handle.info_hash());
+	//	auto tf = st->handle.torrent_file();
+	Pivot pitt = sp.FindName(L"pi").as<Pivot>();
+	auto Info = pitt.FindName(L"PivotInfo").as<PivotItem>();
+
+	// Delete Handler
+	Info.Content().as<StackPanel>().FindName(ystring().Format(L"MD%S", ha.c_str())).as<Button>().Click(
+		[](const IInspectable& sender, const RoutedEventArgs& r)
+	{
+		Button mf = sender.as<Button>();
+		wstring t = mf.Name().c_str();
+		DeleteTorrent(ystring(t.c_str() + 2).a_str());
+	}
+	);
+
+	// Open Folder Handler
+	Info.Content().as<StackPanel>().FindName(ystring().Format(L"OP%S", ha.c_str())).as<Button>().Click(
+		[](const IInspectable& sender, const RoutedEventArgs& r)
+	{
+		Button mf = sender.as<Button>();
+		wstring t = mf.Name().c_str();
+		string hash = ystring(t.c_str() + 2).a_str();
+		th.readlock([&](const vector<lt::torrent_handle>& v) {
+			for (auto& t : v)
 			{
-				auto txt = sp.FindName(ystring().Format(L"Text%S", ha.c_str())).as<TextBlock>();
-				txt.Text(ystring(st->name.c_str()).c_str());
+				if (hs(t.info_hash()) == hash)
+				{
+					auto& st = t.status();
+					ystring pa = st.save_path;
+
+					// Check if the files have another path inside
+					vector<wstring> fils;
+					size_t n = t.torrent_file()->files().num_files();
+					for (int iif = 0; iif < n; iif++)
+					{
+						ystring np = t.torrent_file()->files().file_path(iif).c_str();
+						if (wcschr(np.c_str(), '\\') != 0)
+						{
+							wchar_t p2[1000] = { 0 };
+							wcscpy_s(p2, 1000, np.c_str());
+							auto w1 = wcschr(p2, '\\');
+							*w1 = 0;
+
+							ystring np = Setting("TORRENTDIR", ".\\TORRENTS").c_str();
+							np += L"\\";
+							np += p2;
+
+							pa = np;
+							break;
+						}
+					}
+
+					ShellExecute(MainWindow, L"open", pa.c_str(), 0, 0, SW_SHOWNORMAL);
+				}
+			}
+		});
+	});
+
+
+	// PR Handler
+	Info.Content().as<StackPanel>().FindName(ystring().Format(L"PP%S", ha.c_str())).as<Button>().Click(
+		[](const IInspectable& sender, const RoutedEventArgs& r)
+	{
+		Button mf = sender.as<Button>();
+		wstring t = mf.Name().c_str();
+		string hash = ystring(t.c_str() + 2).a_str();
+		th.readlock([&](const vector<lt::torrent_handle>& v) {
+			for (auto& t : v)
+			{
+				if (hs(t.info_hash()) == hash)
+				{
+					reqs.writelock([&](queue<TREQUEST>& r)
+					{
+						TREQUEST rr;
+						rr.Type = 2;
+						rr.h = hash;
+						r.push(rr);
+					});
+
+				}
+			}
+		});
+	});
+	Info.Content().as<StackPanel>().FindName(ystring().Format(L"RR%S", ha.c_str())).as<Button>().Click(
+		[](const IInspectable& sender, const RoutedEventArgs& r)
+	{
+		Button mf = sender.as<Button>();
+		wstring t = mf.Name().c_str();
+		string hash = ystring(t.c_str() + 2).a_str();
+		th.readlock([&](const vector<lt::torrent_handle>& v) {
+			for (auto& t : v)
+			{
+				if (hs(t.info_hash()) == hash)
+				{
+					reqs.writelock([&](queue<TREQUEST>& r)
+					{
+						TREQUEST rr;
+						rr.Type = 3;
+						rr.h = hash;
+						r.push(rr);
+					});
+
+				}
+			}
+		});
+	});
+
+
+	// PRi Handler
+	if (true)
+	{
+		Info.Content().as<StackPanel>().FindName(ystring().Format(L"P0_%S", ha.c_str())).as<MenuFlyoutItem>().Click(
+			[](const IInspectable& sender, const RoutedEventArgs& r)
+		{
+			string hash = ystring(sender.as<MenuFlyoutItem>().Name().c_str() + 3).a_str();
+			th.readlock([&](const vector<lt::torrent_handle>& v) {
+				for (auto& t : v)
+				{
+					if (hs(t.info_hash()) == hash)
+					{
+						t.queue_position_top();
+					}
+				}
+			});
+		});
+		Info.Content().as<StackPanel>().FindName(ystring().Format(L"P1_%S", ha.c_str())).as<MenuFlyoutItem>().Click(
+			[](const IInspectable& sender, const RoutedEventArgs& r)
+		{
+			string hash = ystring(sender.as<MenuFlyoutItem>().Name().c_str() + 3).a_str();
+			th.readlock([&](const vector<lt::torrent_handle>& v) {
+				for (auto& t : v)
+				{
+					if (hs(t.info_hash()) == hash)
+					{
+						t.queue_position_up();
+					}
+				}
+			});
+		});
+		Info.Content().as<StackPanel>().FindName(ystring().Format(L"P2_%S", ha.c_str())).as<MenuFlyoutItem>().Click(
+			[](const IInspectable& sender, const RoutedEventArgs& r)
+		{
+			string hash = ystring(sender.as<MenuFlyoutItem>().Name().c_str() + 3).a_str();
+			th.readlock([&](const vector<lt::torrent_handle>& v) {
+				for (auto& t : v)
+				{
+					if (hs(t.info_hash()) == hash)
+					{
+						t.queue_position_down();
+					}
+				}
+			});
+		});
+		Info.Content().as<StackPanel>().FindName(ystring().Format(L"P3_%S", ha.c_str())).as<MenuFlyoutItem>().Click(
+			[](const IInspectable& sender, const RoutedEventArgs& r)
+		{
+			string hash = ystring(sender.as<MenuFlyoutItem>().Name().c_str() + 3).a_str();
+			th.readlock([&](const vector<lt::torrent_handle>& v) {
+				for (auto& t : v)
+				{
+					if (hs(t.info_hash()) == hash)
+					{
+						t.queue_position_bottom();
+					}
+				}
+			});
+		});
+
+
+	}
+
+
+}
+
+void UpdateFiles(lt::torrent_status* st, StackPanel sp)
+{
+	using namespace winrt::Windows::UI::Xaml::Markup;
+	if (!st)
+		return;
+	string ha = hs(st->handle.info_hash());
+
+	// Files
+	auto Files = sp.FindName(L"PivotFiles").as<PivotItem>();
+	auto LFiles = Files.FindName(L"FilesView").as<ListView>();
+	if (LFiles.Items().Size())
+		return; // Already there
+
+	LFiles.Items().Clear();
+	auto tf = st->handle.torrent_file();
+	if (tf)
+	{
+		size_t n = tf->files().num_files();
+		for (int iif = 0; iif < n; iif++)
+		{
+			auto np = tf->files().file_path(iif);
+			//								auto nn = tf->files().file_name(iif);
+
+											// Remove &
+			for (auto& aa : np)
+			{
+				if (aa == '&')
+					aa = '_';
+			}
+
+
+			auto i2 = LR"(
+			<StackPanel xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+			<TextBlock Text="%S" />
+			</StackPanel>
+)";
+
+			ystring s2;
+			s2.Format(i2, np.c_str());
+			try
+			{
+				auto x2 = XamlReader::Load(s2);
+				LFiles.Items().Append(x2);
+			}
+			catch (...)
+			{
 			}
 		}
 	}
-	catch(...)
-	{
+
+}
+
+void UpdatePeers(lt::torrent_status* st, StackPanel sp)
+{
+	using namespace winrt::Windows::UI::Xaml::Markup;
+	if (!st)
+		return;
+	string ha = hs(st->handle.info_hash());
 	
+	auto Peers = sp.FindName(L"PivotPeers").as<PivotItem>();
+	auto LPeers = Peers.FindName(L"PeersView").as<ListView>();
+	LPeers.Items().Clear();
+	vector<lt::peer_info> pi;
+	st->handle.get_peer_info(pi);
+
+	for (auto& pee : pi)
+	{
+		auto i2 = LR"(
+			<StackPanel xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+			<TextBlock Text="%s" />
+			</StackPanel>
+)";
+
+		ystring s2;
+		s2.Format(i2, ystring(pee.client.c_str()).c_str());
+		try
+		{
+			auto x2 = XamlReader::Load(s2);
+			LPeers.Items().Append(x2);
+		}
+		catch (...)
+		{
+		}
+	}
+
+}
+
+void UpdateInfo(lt::torrent_status* st, StackPanel sp)
+{
+	using namespace winrt::Windows::UI::Xaml::Markup;
+	if (!st)
+		return;
+	string ha = hs(st->handle.info_hash());
+	TopView nv = c->ins.as<TopView>();
+	//	auto tf = st->handle.torrent_file();
+	Pivot pitt = sp.FindName(L"pi").as<Pivot>();
+	auto Info = pitt.FindName(L"PivotInfo").as<PivotItem>();
+
+	bool Finished = false;
+	if (st->state == lt::torrent_status::seeding)
+		Finished = true;
+	// Create info
+
+	ystring comment;
+	shared_ptr<const lt::torrent_info> f = st->torrent_file.lock();
+	if (f)
+		comment = f->comment();
+
+
+	auto pi = sp.FindName(ystring().Format(L"PI%S", ha.c_str())).as<TextBlock>();
+	auto jpos = st->handle.queue_position();
+	if (!Finished)
+		pi.Text(ystring().Format(L"%u", jpos));
+
+	if (Finished)
+	{
+		pi.FindName(L"pPri").as<Button>().Visibility(Visibility::Collapsed);
+		pi.FindName(ystring().Format(L"PP%S", ha.c_str())).as<Button>().Visibility(Visibility::Collapsed);
+		pi.FindName(ystring().Format(L"RR%S", ha.c_str())).as<Button>().Visibility(Visibility::Collapsed);
+	}
+	else
+	{
+		if (st->paused)
+		{
+			pi.FindName(ystring().Format(L"PP%S", ha.c_str())).as<Button>().Visibility(Visibility::Collapsed);
+			pi.FindName(ystring().Format(L"RR%S", ha.c_str())).as<Button>().Visibility(Visibility::Visible);
+		}
+		else
+		{
+			pi.FindName(ystring().Format(L"PP%S", ha.c_str())).as<Button>().Visibility(Visibility::Visible);
+			pi.FindName(ystring().Format(L"RR%S", ha.c_str())).as<Button>().Visibility(Visibility::Collapsed);
+
+		}
+
+	}
+
+
+	// Name
+	pi.FindName(L"pName").as<TextBlock>().Text(ystring(st->name).c_str());
+
+	// Comment
+	pi.FindName(L"pComment").as<TextBlock>().Text(comment.c_str());
+
+	// Size
+	if (Finished)
+		pi.FindName(L"pSize").as<TextBlock>().Visibility(Visibility::Collapsed);
+	else
+		pi.FindName(L"pSize").as<TextBlock>().Text(SizeValue(st->total).c_str());
+
+}
+
+void UpdateListView(const lt::torrent_handle* e, WPARAM Rem = 0)
+{
+	// Update the ListView
+	TopView nv = c->ins.as<TopView>();
+	try
+	{
+		auto lv = nv.FindName(L"torrlist").as<ListView>();
+		auto its = lv.Items();
+		//		auto i = e->id();
+		auto h = hs(e->info_hash());
+
+		if (Rem)
+		{
+			h = *(string*)Rem;
+			for (uint32_t i = 0; i < its.Size(); i++)
+			{
+				wstring n = its.GetAt(i).as<StackPanel>().Name().c_str();
+				string wi = ystring(n.c_str() + 10);
+				if (wi == h)
+				{
+					its.RemoveAt(i);
+					sqlite::query q(sql->h(), "DELETE FROM TORRENTS WHERE HASH = ?");
+					q.BindText(1, h.c_str(), h.length());
+					q.R();
+					break;
+				}
+			}
+			return;
+		}
+
+		ystring sp;
+		sp = ystring().Format(
+			txaml.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str(),
+			h.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str());
+		using namespace winrt::Windows::UI::Xaml::Markup;
+		auto ins = XamlReader::Load(sp.c_str());
+		its.Append(ins);
+
+		// The Handlers
+		UpdateHandlers(&e->status(), its.GetAt(its.Size() - 1).as<StackPanel>());
+
+
+	}
+	catch (...)
+	{
 	}
 }
 
 
-void foo()
+
+void UpdateListView2(lt::torrent_status* st)
 {
-/*	lt::add_torrent_params p;
-	p.save_path = "./";
-	p.ti = std::make_shared<lt::torrent_info>(std::string("ha"));
-	s.add_torrent(p);
-	*/
+	using namespace winrt::Windows::UI::Xaml::Markup;
+	if (!st)
+		return;
+
+	//	auto idx = st->handle.id();
+	string ha = hs(st->handle.info_hash());
+	TopView nv = c->ins.as<TopView>();
+
+	ystring fn;
+	fn.Format(L"%S", ha.c_str());
+
+
+	// Update the ListView
+	try
+	{
+		auto lv = nv.FindName(L"torrlist").as<ListView>();
+		auto its = lv.Items();
+		for (uint32_t i = 0; i < its.Size(); i++)
+		{
+			auto sp = its.GetAt(i).as<StackPanel>();
+			ystring n = winrt::unbox_value<winrt::hstring>(sp.Tag()).c_str();
+			if (n != fn)
+				continue;
+
+			// The list
+			UpdateList(st, sp);
+
+			// The Info
+			UpdateInfo(st, sp);
+
+			// The files
+			UpdateFiles(st, sp);
+
+			// The peers
+			UpdatePeers(st, sp);
+
+		}
+	}
+	catch (...)
+	{
+
+	}
 }
 
 
-void AddTorrentFile(const wchar_t* f,bool CheckMutex)
+void AddTorrentFile(const wchar_t* f, bool CheckMutex)
 {
 	if (!f)
 		return;
@@ -1292,7 +1237,6 @@ void AddTorrentFile(const wchar_t* f,bool CheckMutex)
 }
 
 
-ystring xaml;
 
 #ifdef USE_NAVIGATIONVIEW
 
@@ -1363,7 +1307,7 @@ void SaveSettings()
 	int PortNum = _wtoi(T_TCPPort.Text().c_str());
 	Setting("TCPPORT", ystring().Format(L"%u", PortNum).a_str(), true);
 
-	Setting("UPLOADLIMIT",ystring().Format(L"%u",_wtoi(nv.FindName(L"T_UploadLimit").as<TextBox>().Text().c_str())).a_str(),true);
+	Setting("UPLOADLIMIT", ystring().Format(L"%u", _wtoi(nv.FindName(L"T_UploadLimit").as<TextBox>().Text().c_str())).a_str(), true);
 	Setting("DOWNLOADLIMIT", ystring().Format(L"%u", _wtoi(nv.FindName(L"T_DownloadLimit").as<TextBox>().Text().c_str())).a_str(), true);
 
 }
@@ -1396,9 +1340,26 @@ void ViewMain()
 			}
 		}
 	}
-	if (xaml.empty())
+	if (txaml.empty())
+	{
+		auto hm = GetModuleHandle(0);
+		auto h1 = FindResource(hm, L"TV", L"DATA");
+		if (h1)
+		{
+			auto h2 = LoadResource(hm, h1);
+			if (h2)
+			{
+				auto h3 = LockResource(h2);
+				auto sz = SizeofResource(hm, h1);
+				vector<char> x(sz + 1);
+				memcpy(x.data(), h3, sz);
+				txaml = x.data();
+			}
+		}
+	}
+	if (xaml.empty() || txaml.empty())
 		return;
-	
+
 
 	ystring pp1;
 	pp1.Format(xaml.c_str(), Setting("TORRENTDIR", ".\\TORRENTS").c_str());
@@ -1422,7 +1383,7 @@ void ViewMain()
 
 		c = (UWPLIB::UWPCONTROL*)SendMessage(hX, UWPM_GET_CONTROL, 0, 0);
 		TopView x1 = c->ins.as<TopView>();
-		Setting("TORRENTDIR", ystring(rv).a_str(),true);
+		Setting("TORRENTDIR", ystring(rv).a_str(), true);
 
 		auto PickTorrentDir = x1.FindName(L"TB_SaveDirB").as<Button>();
 		PickTorrentDir.Content(winrt::box_value(ystring().Format(L"Saving to: %s", rv).c_str()));
@@ -1503,7 +1464,7 @@ void ViewMain()
 
 	// Torrent Button
 	auto avi = sp.FindName(L"CB_AV").as<CheckBox>();
-	if (Setting("SCANFINISHED","1") == ystring("1"))
+	if (Setting("SCANFINISHED", "1") == ystring("1"))
 		avi.IsChecked(true);
 	avi.Checked([](const IInspectable&  sender, const RoutedEventArgs&)
 	{
@@ -1514,6 +1475,26 @@ void ViewMain()
 		Setting("SCANFINISHED", "0", true);
 	});
 
+
+	auto tprops = x1.FindName(L"btnp").as<Button>();
+	tprops.Click([](const IInspectable& ins, const RoutedEventArgs& r)
+	{
+		TopView tv = c->ins.as<TopView>();
+		auto lv = tv.FindName(L"torrlist").as<ListView>();
+
+		for (uint32_t i = 0; i < lv.Items().Size(); i++)
+		{
+			auto piv = lv.Items().GetAt(i).as<StackPanel>().FindName(L"pi").as<Pivot>();
+			piv.Visibility(Visibility::Collapsed);
+		}
+
+		for (uint32_t i = 0; i < lv.SelectedItems().Size(); i++)
+		{
+			auto piv = lv.SelectedItems().GetAt(i).as<StackPanel>().FindName(L"pi").as<Pivot>();
+			piv.Visibility(Visibility::Visible);
+		}
+
+	});
 
 	auto AddF = x1.FindName(L"btnf").as<Button>();
 	AddF.Click([](const IInspectable& ins, const RoutedEventArgs& r)
@@ -1535,7 +1516,7 @@ void ViewMain()
 		if (*ff != 0)
 		{
 			// fnx
-			AddTorrentFile(fnx,false);
+			AddTorrentFile(fnx, false);
 		}
 		else
 		{
@@ -1547,7 +1528,7 @@ void ViewMain()
 			{
 				swprintf_s(f, 1000, L"%s\\%s", dir, ff);
 
-				AddTorrentFile(f,false);
+				AddTorrentFile(f, false);
 
 				ff += _tcslen(ff);
 				ff++;
@@ -1570,7 +1551,7 @@ void ViewMain()
 		});
 
 		// Sort ex
-		wstring n =ins.as<MenuFlyoutItem>().Name().c_str();
+		wstring n = ins.as<MenuFlyoutItem>().Name().c_str();
 		if (n == wstring(L"sort_name"))
 		{
 			std::sort(ex.begin(), ex.end(), [](const lt::torrent_handle& h1, const lt::torrent_handle& h2) -> bool
@@ -1640,32 +1621,32 @@ void ViewMain()
 					rr.Type = 1;
 					rr.t = url;
 					rr.row = sql->last();
- 					r.push(rr);
+					r.push(rr);
 				});
 			}
 
 
 		});
 
-/*		apo.Completed([](IAsyncOperation<ContentDialogResult> const& sender, const AsyncOperationCompletedHandler<ContentDialogResult>& res)
-		{
-			MessageBox(0, 0, 0, 0);
-		}
-		);
-*/
+		/*		apo.Completed([](IAsyncOperation<ContentDialogResult> const& sender, const AsyncOperationCompletedHandler<ContentDialogResult>& res)
+				{
+					MessageBox(0, 0, 0, 0);
+				}
+				);
+		*/
 		return;
 	});
 
-	
+
 
 	auto lv = x1.FindName(L"torrlist").as<ListView>();
 
-/*	lv.DragItemsStarting([](const IInspectable&  sender, const DragItemsStartingEventHandler &)
-	{
-		TopView nv = c->ins.as<TopView>();
-		auto lv = sender.as<ListView>();
+	/*	lv.DragItemsStarting([](const IInspectable&  sender, const DragItemsStartingEventHandler &)
+		{
+			TopView nv = c->ins.as<TopView>();
+			auto lv = sender.as<ListView>();
 
-	});*/
+		});*/
 	lv.DragItemsCompleted([](const IInspectable&  sender, const DragItemsCompletedEventArgs& drg)
 	{
 		TopView nv = c->ins.as<TopView>();
@@ -1678,44 +1659,6 @@ void ViewMain()
 	{
 		TopView nv = c->ins.as<TopView>();
 		auto lv = sender.as<ListView>();
-		unsigned int idx = lv.SelectedIndex();
-		auto s = LVSelected;
-		LVSelected.clear();
-		if (lv.SelectedItems().Size() != 1)
-		{
-			nv.FindName(L"MainView2").as<StackPanel>().Orientation(Orientation::Vertical);
-			StackPanel pvs = nv.FindName(L"pivotstack").as<StackPanel>();
-			Pivot pitt = pvs.Children().GetAt(0).as<Pivot>();
-			pitt.Visibility(Visibility::Collapsed);
-			return;
-		}
-
-		if (idx < lv.Items().Size())
-		{
-			// Get StackPanel idx
-			nv.FindName(L"MainView2").as<StackPanel>().Orientation(Orientation::Horizontal);
-			auto spx = lv.Items().GetAt(idx).as<StackPanel>();
-			ystring n = winrt::unbox_value<winrt::hstring>(spx.Tag()).c_str();
-			LVSelected = n;
-			if (s == LVSelected)
-			{
-/*				LVSelected.clear();
-				lv.SelectedItems().Clear();
-				// Hide the pivot
-				StackPanel pvs = nv.FindName(L"pivotstack").as<StackPanel>();
-				Pivot pitt = pvs.Children().GetAt(0).as<Pivot>();
-				pitt.Visibility(Visibility::Collapsed);
-	*/		}
-		}
-		else
-		{
-			nv.FindName(L"MainView2").as<StackPanel>().Orientation(Orientation::Vertical);
-			StackPanel pvs = nv.FindName(L"pivotstack").as<StackPanel>();
-			Pivot pitt = pvs.Children().GetAt(0).as<Pivot>();
-			pitt.Visibility(Visibility::Collapsed);
-		}
-	
-
 	});
 
 	// Port Number
@@ -1730,7 +1673,7 @@ void ViewMain()
 	});
 
 	// Other options
-	x1.FindName(L"T_UploadLimit").as<TextBox>().Text(ystring().Format(L"%u",_wtoi(Setting("UPLOADLIMIT","0").c_str())));
+	x1.FindName(L"T_UploadLimit").as<TextBox>().Text(ystring().Format(L"%u", _wtoi(Setting("UPLOADLIMIT", "0").c_str())));
 	x1.FindName(L"T_DownloadLimit").as<TextBox>().Text(ystring().Format(L"%u", _wtoi(Setting("DOWNLOADLIMIT", "0").c_str())));
 
 
@@ -1739,7 +1682,7 @@ void ViewMain()
 TRAY tr;
 
 LRESULT CALLBACK Main_DP(HWND hh, UINT mm, WPARAM ww, LPARAM ll)
-	{
+{
 	if (mm == umsg)
 	{
 		if (ww == 1) // Refresh torrents
@@ -1748,7 +1691,7 @@ LRESULT CALLBACK Main_DP(HWND hh, UINT mm, WPARAM ww, LPARAM ll)
 			// Check if there?
 			sqlite::query q(sql->h(), "SELECT * FROM TORRENTS WHERE HASH IS NULL");
 			map<string, string> row;
-			while(q.NextRow(row))
+			while (q.NextRow(row))
 			{
 				// Add it to queue
 				reqs.writelock([&](queue<TREQUEST>& r)
@@ -1776,128 +1719,132 @@ LRESULT CALLBACK Main_DP(HWND hh, UINT mm, WPARAM ww, LPARAM ll)
 	}
 
 	switch (mm)
+	{
+	case WM_USER + 301:
+	{
+		if (ll == WM_LBUTTONDBLCLK)
 		{
-		case WM_USER + 301:
-		{
-			if (ll == WM_LBUTTONDBLCLK)
-			{
-				ShowWindow(hh, SW_SHOW);
-				SetForegroundWindow(hh);
-			}
-			return 0;
+			ShowWindow(hh, SW_SHOW);
+			SetForegroundWindow(hh);
 		}
-		case WM_USER + 551:
-		{
-			lt::torrent_handle* h2 = (lt::torrent_handle*)ll;
-			UpdateListView(h2);
-			return 0;
-		}
-		case WM_USER + 553:
-		{
-			lt::torrent_handle* h2 = (lt::torrent_handle*)ll;
-			UpdateListView(h2,ww);
-			return 0;
-		}
-		case WM_USER + 552:
-		{
-			lt::torrent_status* h2 = (lt::torrent_status*)ll;
-			if (ww == 1)
-				tr.Message(ystring(h2->name).c_str(), L"Torrent finished");
-			UpdateListView2(h2);
-			return 0;
-		}
+		return 0;
+	}
+	case WM_USER + 551:
+	{
+		lt::torrent_handle* h2 = (lt::torrent_handle*)ll;
+		UpdateListView(h2);
+		return 0;
+	}
+	case WM_USER + 553:
+	{
+		lt::torrent_handle* h2 = (lt::torrent_handle*)ll;
+		UpdateListView(h2, ww);
+		return 0;
+	}
+	case WM_USER + 552:
+	{
+		lt::torrent_status* h2 = (lt::torrent_status*)ll;
+		if (ww == 1)
+			tr.Message(ystring(h2->name).c_str(), L"Torrent finished");
+		UpdateListView2(h2);
+		return 0;
+	}
 
-		case WM_USER + 554: // set Scan text
+	case WM_USER + 554: // set Scan text
+	{
+		TopView nv = c->ins.as<TopView>();
+		if (ll)
 		{
-			TopView nv = c->ins.as<TopView>();
-			if (ll)
+			auto ins = nv.FindName(L"ScanText");
+			if (ins)
+				ins.as<TextBlock>().Text((wchar_t*)ll);
+		}
+		if (ww)
+		{
+			auto ins = nv.FindName(L"scanlist");
+			if (ins)
 			{
-				auto ins = nv.FindName(L"ScanText");
-				if (ins)
-					ins.as<TextBlock>().Text((wchar_t*)ll);
-			}
-			if (ww)
-			{
-				auto ins = nv.FindName(L"scanlist");
-				if (ins)
-				{
-					auto lv = ins.as<ListView>();
+				auto lv = ins.as<ListView>();
 
-					ystring sp;
-					sp = ystring().Format(
-						LR"(
+				ystring sp;
+				sp = ystring().Format(
+					LR"(
 					<TextBlock xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Margin="20,0,0,0" Text="%s" />
 						)", (wchar_t*)ww);
-					using namespace winrt::Windows::UI::Xaml::Markup;
-					auto ins2 = XamlReader::Load(sp.c_str());
-					lv.Items().Append(ins2);
-					ShowAVScan();
-				}
-			}
-			return 0;
-		}
-
-		case WM_CREATE:
-			{
-			hX = CreateWindowEx(0, L"UWP_Custom", L"", WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, hh, (HMENU)901, 0, 0);
-			ViewMain();
-			SendMessage(hh, WM_SIZE, 0, 0);
-			std::thread t(BitThread);			t.detach();
-			std::thread tt(AVThread);			tt.detach();
-			break;
-			}
-
-		case WM_SIZE:
-		{
-			RECT rc;
-			GetClientRect(hh, &rc);
-			if (ww == SIZE_MINIMIZED)
-			{
-				ShowWindow(hh, SW_HIDE);
-				return 0;
-			}
-			SetWindowPos(hX, 0, 0, 0, rc.right, rc.bottom, SWP_SHOWWINDOW);
-			if (c)
-			{
-				SetWindowPos(c->hwndDetailXamlIsland, 0, 0, 0, rc.right, rc.bottom, SWP_SHOWWINDOW);
-				GridLength v;
-				v.Value = rc.bottom - 150;
-				v.GridUnitType = GridUnitType::Pixel;
-				if (v.Value > 0)
-				{
-					c->ins.as<TopView>().FindName(L"RowDef1").as<RowDefinition>().Height(v);
-					c->ins.as<TopView>().FindName(L"RowDef2").as<RowDefinition>().Height(v);
-					c->ins.as<TopView>().FindName(L"RowDef3").as<RowDefinition>().Height(v);
-				}
-
-			}
-			return 0;
-		}
-
-		case WM_COMMAND:
-			{
-			int LW = LOWORD(ww);
-			UNREFERENCED_PARAMETER(LW);
-
-
-			return 0;
-			}
-
-		case WM_CLOSE:
-			{
-			DestroyWindow(hX);
-			DestroyWindow(hh);
-			return 0;
-			}
-
-		case WM_DESTROY:
-			{
-			PostQuitMessage(0);
-			return 0;
+				using namespace winrt::Windows::UI::Xaml::Markup;
+				auto ins2 = XamlReader::Load(sp.c_str());
+				lv.Items().Append(ins2);
+				ShowAVScan();
 			}
 		}
-	return DefWindowProc(hh, mm, ww, ll);
+		return 0;
 	}
+
+	case WM_CREATE:
+	{
+		hX = CreateWindowEx(0, L"UWP_Custom", L"", WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, hh, (HMENU)901, 0, 0);
+		ViewMain();
+		SendMessage(hh, WM_SIZE, 0, 0);
+		std::thread t(BitThread);			t.detach();
+		std::thread tt(AVThread);			tt.detach();
+		break;
+	}
+
+	case WM_SIZE:
+	{
+		RECT rc;
+		GetClientRect(hh, &rc);
+		if (ww == SIZE_MINIMIZED)
+		{
+			ShowWindow(hh, SW_HIDE);
+			return 0;
+		}
+		SetWindowPos(hX, 0, 0, 0, rc.right, rc.bottom, SWP_SHOWWINDOW);
+		if (c)
+		{
+			SetWindowPos(c->hwndDetailXamlIsland, 0, 0, 0, rc.right, rc.bottom, SWP_SHOWWINDOW);
+			GridLength v;
+			v.Value = rc.bottom - 150;
+			v.GridUnitType = GridUnitType::Pixel;
+			GridLength v2;
+			v2.Value = rc.right;
+			v2.GridUnitType = GridUnitType::Pixel;
+			if (v.Value > 0)
+			{
+				c->ins.as<TopView>().FindName(L"RowDef1").as<RowDefinition>().Height(v);
+				c->ins.as<TopView>().FindName(L"ColDef1").as<ColumnDefinition>().Width(v2);
+				//				c->ins.as<TopView>().FindName(L"RowDef2").as<RowDefinition>().Height(v);
+						//			c->ins.as<TopView>().FindName(L"RowDef3").as<RowDefinition>().Height(v);
+			}
+
+		}
+		return 0;
+	}
+
+	case WM_COMMAND:
+	{
+		int LW = LOWORD(ww);
+		UNREFERENCED_PARAMETER(LW);
+
+
+		return 0;
+	}
+
+	case WM_CLOSE:
+	{
+		DestroyWindow(hX);
+		DestroyWindow(hh);
+		return 0;
+	}
+
+	case WM_DESTROY:
+	{
+		PostQuitMessage(0);
+		return 0;
+	}
+	}
+	return DefWindowProc(hh, mm, ww, ll);
+}
 
 
 
@@ -1905,7 +1852,7 @@ LRESULT CALLBACK Main_DP(HWND hh, UINT mm, WPARAM ww, LPARAM ll)
 #include <winrt/Windows.ui.notifications.h>
 
 int __stdcall WinMain(HINSTANCE h, HINSTANCE, LPSTR t, int)
-	{
+{
 	TCHAR cd[1000];
 	GetModuleFileName(h, cd, 1000);
 	TCHAR* r1 = wcsrchr(cd, '\\');
@@ -1933,7 +1880,7 @@ int __stdcall WinMain(HINSTANCE h, HINSTANCE, LPSTR t, int)
 	hAppInstance = h;
 	sql = make_shared<sqlite::sqlite>("config.db");
 	SQLPrep();
-//	ttest();
+	//	ttest();
 	umsg = RegisterWindowMessage(mutn);
 
 
@@ -2041,17 +1988,17 @@ int __stdcall WinMain(HINSTANCE h, HINSTANCE, LPSTR t, int)
 		WS_CLIPCHILDREN, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
 		0, 0, h, 0);
 
-	ShowWindow(MainWindow, SW_SHOW);
+	ShowWindow(MainWindow, SW_SHOWMAXIMIZED);
 
 	tr.Attach(MainWindow, hIcon1, WM_USER + 301);
 
 	MSG msg;
 
 	while (GetMessage(&msg, 0, 0, 0))
-		{
+	{
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
-		}
+	}
 
 	End = true;
 	for (int i = 0; i < 10; i++)

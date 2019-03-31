@@ -68,5 +68,8 @@
     <Page Include="main.xaml">
       <Filter>Resources</Filter>
     </Page>
+    <Page Include="torrent.xaml">
+      <Filter>Resources</Filter>
+    </Page>
   </ItemGroup>
 </Project>
