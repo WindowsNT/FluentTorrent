@@ -751,7 +751,114 @@ void AVScan(lt::torrent_handle t)
 
 }
 
+
 wstring PrevLV;
+bool PittUpdates = false;
+
+void PittSelection(const IInspectable sender, RoutedEventArgs  const &) 
+{
+	using namespace winrt::Windows::UI::Xaml::Markup;
+	auto P = sender.as<Pivot>();
+	int idx = P.SelectedIndex();
+	if (idx == 0)
+		return; //
+
+	if (LVSelected.empty())
+		return;
+
+	// Find Current Torrent
+	const lt::torrent_handle* h = 0;
+	th.readlock([&](const vector<lt::torrent_handle>& v) {
+
+		for (auto& vv : v)
+		{
+			auto h1 = hs(vv.info_hash());
+			string h2 = ystring(LVSelected.c_str()).a_str();
+			if (h1 == h2)
+			{
+				h = &vv;
+				break;
+			}
+		}
+	});
+	if (!h)
+		return;
+
+	if (idx == 1) // Files
+	{
+		auto Files = P.FindName(L"PivotFiles").as<PivotItem>();
+		auto LFiles = Files.FindName(L"FilesView").as<ListView>();
+		LFiles.Items().Clear();
+		auto tf = h->torrent_file();
+		if (tf)
+		{
+			size_t n = tf->files().num_files();
+			for (int iif = 0; iif < n; iif++)
+			{
+				auto np = tf->files().file_path(iif);
+				//								auto nn = tf->files().file_name(iif);
+
+												// Remove &
+				for (auto& aa : np)
+				{
+					if (aa == '&')
+						aa = '_';
+				}
+
+
+				auto i2 = LR"(
+				<StackPanel xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+				<TextBlock Text="%S" />
+				</StackPanel>
+)";
+
+				ystring s2;
+				s2.Format(i2, np.c_str());
+				try
+				{
+					auto x2 = XamlReader::Load(s2);
+					LFiles.Items().Append(x2);
+				}
+				catch (...)
+				{
+				}
+			}
+		}
+	}
+
+
+	if (idx == 2) // Peers
+	{
+		auto Peers = P.FindName(L"PivotPeers").as<PivotItem>();
+		auto LPeers = Peers.FindName(L"PeersView").as<ListView>();
+		LPeers.Items().Clear();
+		vector<lt::peer_info> pi;
+		h->get_peer_info(pi);
+
+		for (auto& pee : pi)
+		{
+			auto i2 = LR"(
+				<StackPanel xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+				<TextBlock Text="%s" />
+				</StackPanel>
+)";
+
+			ystring s2;
+			s2.Format(i2, ystring(pee.client.c_str()).c_str());
+			try
+			{
+				auto x2 = XamlReader::Load(s2);
+				LPeers.Items().Append(x2);
+			}
+			catch (...)
+			{
+			}
+		}
+	}
+}
+
 void UpdateListView2(lt::torrent_status* st)
 {
 	using namespace winrt::Windows::UI::Xaml::Markup;
@@ -787,6 +894,11 @@ void UpdateListView2(lt::torrent_status* st)
 			// Pivot
 			auto tf = st->handle.torrent_file();
 			Pivot pitt = pvs.Children().GetAt(0).as<Pivot>();
+			if (!PittUpdates)
+			{
+				PittUpdates = true;
+				pitt.SelectionChanged(PittSelection);
+			}
 
 			if (n == LVSelected)
 			{
@@ -1032,108 +1144,6 @@ void UpdateListView2(lt::torrent_status* st)
 
 					}
 
-					// Files and Peers Changer
-					pitt.SelectionChanged([](const IInspectable sender, RoutedEventArgs  const & ) {
-						auto P = sender.as<Pivot>();
-						int idx = P.SelectedIndex();
-						if (idx == 0)
-							return; //
-
-						if (LVSelected.empty())
-							return;
-
-						// Find Current Torrent
-						const lt::torrent_handle* h = 0;
-						th.readlock([&](const vector<lt::torrent_handle>& v) {
-
-							for (auto& vv : v)
-							{
-								auto h1 = hs(vv.info_hash());
-								string h2 = ystring(LVSelected.c_str()).a_str();
-								if (h1 == h2)
-								{
-									h = &vv;
-									break;
-								}
-							}
-						});
-						if (!h)
-							return;
-
-						if (idx == 1) // Files
-						{
-							auto Files = P.FindName(L"PivotFiles").as<PivotItem>();
-							auto LFiles = Files.FindName(L"FilesView").as<ListView>();
-							LFiles.Items().Clear();
-							auto tf = h->torrent_file();
-							if (tf)
-							{
-								size_t n = tf->files().num_files();
-								for (int iif = 0; iif < n; iif++)
-								{
-									auto np = tf->files().file_path(iif);
-									//								auto nn = tf->files().file_name(iif);
-
-																	// Remove &
-									for (auto& aa : np)
-									{
-										if (aa == '&')
-											aa = '_';
-									}
-
-
-									auto i2 = LR"(
-				<StackPanel xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-				<TextBlock Text="%S" />
-				</StackPanel>
-)";
-
-									ystring s2;
-									s2.Format(i2, np.c_str());
-									try
-									{
-										auto x2 = XamlReader::Load(s2);
-										LFiles.Items().Append(x2);
-									}
-									catch (...)
-									{
-									}
-								}
-							}
-						}
-
-					
-						if (idx == 2) // Peers
-						{
-							auto Peers = P.FindName(L"PivotPeers").as<PivotItem>();
-							auto LPeers = Peers.FindName(L"PeersView").as<ListView>();
-							LPeers.Items().Clear();
-							vector<lt::peer_info> pi;
-							h->get_peer_info(pi);
-
-							for (auto& pee : pi)
-							{
-								auto i2 = LR"(
-				<StackPanel xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-				<TextBlock Text="%s" />
-				</StackPanel>
-)";
-
-								ystring s2;
-								s2.Format(i2, ystring(pee.client.c_str()).c_str());
-								try
-								{
-									auto x2 = XamlReader::Load(s2);
-									LPeers.Items().Append(x2);
-								}
-								catch (...)
-								{
-								}
-							}
-						}
-					});
 
 				
 				}
