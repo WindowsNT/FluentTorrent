@@ -829,7 +829,6 @@ void UpdateHandlers(lt::torrent_status* st, StackPanel sp)
 		});
 	});
 
-
 	// PR Handler
 	Info.Content().as<StackPanel>().FindName(ystring().Format(L"PP%S", ha.c_str())).as<Button>().Click(
 		[](const IInspectable& sender, const RoutedEventArgs& r)
@@ -1652,6 +1651,19 @@ void ViewMain()
 		TopView nv = c->ins.as<TopView>();
 		auto lv = sender.as<ListView>();
 		//drg.DropResult.
+
+	});
+
+	lv.IsDoubleTapEnabled(true);
+	lv.DoubleTapped([](const IInspectable&  sender, const RoutedEventArgs& drg)
+	{
+		auto lv = sender.as<ListView>();
+		auto li = lv.SelectedItem().as<StackPanel>();
+		auto pi = li.FindName(L"pi").as<Pivot>();
+		if (pi.Visibility() == Visibility::Collapsed)
+			pi.Visibility(Visibility::Visible);
+		else
+			pi.Visibility(Visibility::Collapsed);
 
 	});
 
