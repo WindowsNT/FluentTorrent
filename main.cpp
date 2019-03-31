@@ -438,7 +438,7 @@ void BitThread()
 				if (!NoScan)
 				{
 					void AVScan(lt::torrent_handle t);
-					if (Setting("SCANFINISHED", "0") == ystring("1"))
+					if (Setting("SCANFINISHED", "1") == ystring("1"))
 					{
 						InScan = true;
 						AVScan(st->handle);
@@ -1460,7 +1460,7 @@ void ViewMain()
 
 	// Torrent Button
 	auto avi = sp.FindName(L"CB_AV").as<CheckBox>();
-	if (Setting("SCANFINISHED","0") == ystring("1"))
+	if (Setting("SCANFINISHED","1") == ystring("1"))
 		avi.IsChecked(true);
 	avi.Checked([](const IInspectable&  sender, const RoutedEventArgs&)
 	{
