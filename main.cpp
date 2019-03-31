@@ -1,5 +1,13 @@
 #include "stdafx.h"
 
+
+#pragma comment(lib, "windowsapp")
+
+
+
+
+
+
 int CALLBACK BrowseCallbackProc(
 	HWND hwnd,
 	UINT uMsg,
@@ -18,6 +26,7 @@ int CALLBACK BrowseCallbackProc(
 }
 
 #define USE_NAVIGATIONVIEW
+
 
 #ifdef USE_NAVIGATIONVIEW
 #define TopView NavigationView
@@ -65,11 +74,18 @@ bool BrowseFolder(HWND hh, const TCHAR* tit, const TCHAR* root, const TCHAR* sel
 	CoTaskMemFree(pd);
 	return true;
 }
-using namespace Windows::Foundation;
 
-
+#define UWPLIB_CUSTOMONLY
 #include ".\\uwplib\\uwplib.hpp"
 #include "sqlite3.h"
+
+
+
+
+using namespace winrt::Windows::UI;
+using namespace winrt::Windows::UI::Xaml;
+using namespace winrt::Windows::UI::Xaml::Controls;
+using namespace winrt::Windows::Foundation;
 
 using namespace std;
 #include ".\\mt\\rw.hpp"
@@ -444,21 +460,7 @@ void BitThread()
 					auto& sta = st->status[i];
 					SendMessage(MainWindow, WM_USER + 552, 0, (LPARAM)&sta);
 				}
-
-				/*				if (st->status.empty()) continue;
-
-								// we only have a single torrent, so we know which one
-								// the status is for
-								lt::torrent_status const& s = st->status[0];
-								std::cout << "\r" << state(s.state) << " "
-									<< (s.download_payload_rate / 1000) << " kB/s "
-									<< (s.total_done / 1000) << " kB ("
-									<< (s.progress_ppm / 10000) << "%) downloaded\x1b[K";
-								std::cout.flush();
-					*/
 			}
-
-
 		}
 		Sleep(250);
 		ses.post_torrent_updates();
@@ -476,9 +478,6 @@ void BitThread()
 			});
 			last_save_resume = GetTickCount();
 		}
-
-
-
 	}
 
 
@@ -547,6 +546,7 @@ void UpdateListView(const lt::torrent_handle* e,WPARAM Rem = 0)
 			<TextBlock Margin="20,0,0,0" Name="RA%S" Text="Please wait..." MaxWidth="100" Width="100" />
 			<TextBlock Margin="20,0,0,0" Name="PI%S" Text="" MaxWidth="40" Width="40" />
 		</StackPanel>)", h.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str());
+		using namespace winrt::Windows::UI::Xaml::Markup;
 		auto ins = XamlReader::Load(sp.c_str());
 		its.Append(ins);
 	}
@@ -789,6 +789,7 @@ void AVScan(lt::torrent_handle t)
 wstring PrevLV;
 void UpdateListView2(lt::torrent_status* st)
 {
+	using namespace winrt::Windows::UI::Xaml::Markup;
 	if (!st)
 		return;
 
@@ -813,7 +814,7 @@ void UpdateListView2(lt::torrent_status* st)
 		for (uint32_t i = 0; i < its.Size(); i++)
 		{
 			auto sp = its.GetAt(i).as<StackPanel>();
-			ystring n =  unbox_value<hstring>(sp.Tag()).c_str();
+			ystring n =  winrt::unbox_value<winrt::hstring>(sp.Tag()).c_str();
 			if (n != fn)
 				continue;
 
@@ -1051,19 +1052,32 @@ void UpdateListView2(lt::torrent_status* st)
 								auto np = tf->files().file_path(iif);
 //								auto nn = tf->files().file_name(iif);
 
+								// Remove &
+								for (auto& aa : np)
+								{
+									if (aa == '&')
+										aa = '_';
+								}
+
+
 								auto i2 = LR"(
 					<StackPanel xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-			
 					<TextBlock Text="%S" />
-
 					</StackPanel>
 )";
 
 								ystring s2;
 								s2.Format(i2, np.c_str());
-								auto x2 = XamlReader::Load(s2);
-								LFiles.Items().Append(x2);
+								try
+								{
+									auto x2 = XamlReader::Load(s2);
+									LFiles.Items().Append(x2);
+								}
+								catch (...)
+								{
+									MessageBox(0, s2.c_str(), 0, 0);
+								}
 							}
 						}
 					}
@@ -1238,7 +1252,7 @@ void ItemInvoked(const IInspectable& nav, const NavigationViewItemInvokedEventAr
 		ShowSettings();
 		return;
 	}
-	ystring str = unbox_value<hstring>(tag).c_str();
+	ystring str = winrt::unbox_value<winrt::hstring>(tag).c_str();
 	if (str == L"Torrents")
 	{
 		ShowMainView();
@@ -1319,11 +1333,11 @@ void ViewMain()
 		Setting("TORRENTDIR", ystring(rv).a_str(),true);
 
 		auto PickTorrentDir = x1.FindName(L"TB_SaveDirB").as<Button>();
-		PickTorrentDir.Content(box_value(ystring().Format(L"Saving to: %s", rv).c_str()));
+		PickTorrentDir.Content(winrt::box_value(ystring().Format(L"Saving to: %s", rv).c_str()));
 	});
 
 	auto PickTorrentDir = x1.FindName(L"TB_SaveDirB").as<Button>();
-	PickTorrentDir.Content(box_value(ystring().Format(L"Saving to: %s", Setting("TORRENTDIR", ".\\TORRENTS").c_str())));
+	PickTorrentDir.Content(winrt::box_value(ystring().Format(L"Saving to: %s", Setting("TORRENTDIR", ".\\TORRENTS").c_str())));
 
 
 #ifndef USE_NAVIGATIONVIEW
@@ -1604,7 +1618,7 @@ void ViewMain()
 			// Get StackPanel idx
 			nv.FindName(L"MainView2").as<StackPanel>().Orientation(Orientation::Horizontal);
 			auto spx = lv.Items().GetAt(idx).as<StackPanel>();
-			ystring n = unbox_value<hstring>(spx.Tag()).c_str();
+			ystring n = winrt::unbox_value<winrt::hstring>(spx.Tag()).c_str();
 			LVSelected = n;
 			if (s == LVSelected)
 			{
@@ -1685,10 +1699,15 @@ LRESULT CALLBACK Main_DP(HWND hh, UINT mm, WPARAM ww, LPARAM ll)
 
 	switch (mm)
 		{
-case WM_USER + 301:
-{
-	return 0;
-}
+		case WM_USER + 301:
+		{
+			if (ll == WM_LBUTTONDBLCLK)
+			{
+				ShowWindow(hh, SW_SHOW);
+				SetForegroundWindow(hh);
+			}
+			return 0;
+		}
 		case WM_USER + 551:
 		{
 			lt::torrent_handle* h2 = (lt::torrent_handle*)ll;
@@ -1729,6 +1748,7 @@ case WM_USER + 301:
 						LR"(
 					<TextBlock xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Margin="20,0,0,0" Text="%s" />
 						)", (wchar_t*)ww);
+					using namespace winrt::Windows::UI::Xaml::Markup;
 					auto ins2 = XamlReader::Load(sp.c_str());
 					lv.Items().Append(ins2);
 					ShowAVScan();
@@ -1751,6 +1771,11 @@ case WM_USER + 301:
 		{
 			RECT rc;
 			GetClientRect(hh, &rc);
+			if (ww == SIZE_MINIMIZED)
+			{
+				ShowWindow(hh, SW_HIDE);
+				return 0;
+			}
 			SetWindowPos(hX, 0, 0, 0, rc.right, rc.bottom, SWP_SHOWWINDOW);
 			if (c)
 				SetWindowPos(c->hwndDetailXamlIsland, 0, 0, 0, rc.right, rc.bottom, SWP_SHOWWINDOW);
@@ -1900,7 +1925,7 @@ int __stdcall WinMain(HINSTANCE h, HINSTANCE, LPSTR t, int)
 	WNDCLASSEX wClass = { 0 };
 	wClass.cbSize = sizeof(wClass);
 
-	UWPLIB::Register_Custom();
+	UWPLIB::Register();
 
 
 	wClass.style = CS_DBLCLKS | CS_HREDRAW | CS_VREDRAW | CS_PARENTDC;
