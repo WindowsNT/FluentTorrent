@@ -7,6 +7,7 @@
     <TextBlock Margin="20,0,0,0" Name="KA%S" Text="" MaxWidth="50" Width="50" />
     <TextBlock Margin="20,0,0,0" Name="KB%S" Text="Please wait..." MaxWidth="150" Width="150" />
     <TextBlock Margin="20,0,0,0" Name="RA%S" Text="Please wait..." MaxWidth="100" Width="100" />
+    <TextBlock Margin="20,0,0,0" Name="ET%S" Text="" MaxWidth="100" Width="100" />
     <TextBlock Margin="20,0,0,0" Name="PI%S" Text="" MaxWidth="40" Width="40" />
   </StackPanel>
 

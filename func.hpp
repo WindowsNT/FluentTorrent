@@ -111,7 +111,20 @@ public:
 	}
 };
 
-
+template <typename T>
+string StructSer(T& t)
+{
+	return XML3::Char2Base64((const char*)&t, sizeof(t),false);
+}
+template <typename T>
+T StructUnser(const char* d)
+{
+	XML3::BXML out;
+	XML3::Base64ToChar(d, strlen(d), out);
+	T t;
+	memcpy((void*)&t, out.p(), sizeof(t));
+	return t;
+}
 
 // RKEY, quick registry access 
 class RKEY

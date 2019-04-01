@@ -635,7 +635,7 @@ void AVThread()
 			AMSI_RESULT ar;
 			y.Format(L"Scanning [%s] %s...", ystring(tn.c_str()).c_str(), files[i].c_str());
 			SendMessage(MainWindow, WM_USER + 554, 0, (LPARAM)y.c_str());
-			if (FAILED(AmsiScanBuffer(h, (PVOID)m.operator const char *(), m.size(), files[i].c_str(), 0, &ar)))
+			if (FAILED(AmsiScanBuffer(h, (PVOID)m.operator const char *(),(ULONG) m.size(), files[i].c_str(), 0, &ar)))
 				continue;
 			if (AmsiResultIsMalware(ar))
 			{
@@ -798,7 +798,7 @@ void UpdateHandlers(lt::torrent_status* st, StackPanel sp)
 			{
 				if (hs(t.info_hash()) == hash)
 				{
-					auto& st = t.status();
+					auto st = t.status();
 					ystring pa = st.save_path;
 
 					// Check if the files have another path inside
@@ -944,6 +944,13 @@ void UpdateHandlers(lt::torrent_status* st, StackPanel sp)
 
 }
 
+struct PriButton
+{
+	int pri;
+	int fidx;
+	char ha[80];
+};
+
 void UpdateFiles(lt::torrent_status* st, StackPanel sp)
 {
 	using namespace winrt::Windows::UI::Xaml::Markup;
@@ -958,16 +965,15 @@ void UpdateFiles(lt::torrent_status* st, StackPanel sp)
 		return; // Already there
 
 	LFiles.Items().Clear();
+	vector<int64_t> fpx;
 	auto tf = st->handle.torrent_file();
 	if (tf)
 	{
 		size_t n = tf->files().num_files();
 		for (int iif = 0; iif < n; iif++)
 		{
-			auto np = tf->files().file_path(iif);
-			//								auto nn = tf->files().file_name(iif);
-
-											// Remove &
+			auto np = tf->files().file_name(iif).to_string();
+			auto fs = tf->files().file_size(iif);
 			for (auto& aa : np)
 			{
 				if (aa == '&')
@@ -977,16 +983,75 @@ void UpdateFiles(lt::torrent_status* st, StackPanel sp)
 
 			auto i2 = LR"(
 			<StackPanel xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-			<TextBlock Text="%S" />
+xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Orientation="Horizontal">
+			<TextBlock Text="%s" x:Name="fn" MaxWidth="250" Width="250" />
+			<TextBlock Text="%s" x:Name="fs" MaxWidth="100" Width="100" Margin="20,0,0,0"/>
+			<TextBlock Text="" x:Name="fp" MaxWidth="100" Width="100" Margin="20,0,0,0"/>
+			<Button Content="" x:Name="prb" MaxWidth="150" Width="150" Margin="20,0,0,0">
+			 <Button.Flyout>
+					<MenuFlyout>
+						<MenuFlyoutItem x:Name="prr%S" Text="No download"/>
+						<MenuFlyoutItem x:Name="prr%S" Text="Very Low"/>
+						<MenuFlyoutItem x:Name="prr%S" Text="Low "/>
+						<MenuFlyoutItem x:Name="prr%S" Text="Below Normal"/>
+						<MenuFlyoutItem x:Name="prr%S" Text="Normal"/>
+						<MenuFlyoutItem x:Name="prr%S" Text="Above Normal"/>
+						<MenuFlyoutItem x:Name="prr%S" Text="High"/>
+						<MenuFlyoutItem x:Name="prr%S" Text="Critical"/>
+					</MenuFlyout>
+				</Button.Flyout>
+			</Button>
 			</StackPanel>
 )";
 
-			ystring s2;
-			s2.Format(i2, np.c_str());
 			try
 			{
-				auto x2 = XamlReader::Load(s2);
+				ystring y2;
+
+				vector<string> pp(8);
+				for (int i = 0; i < 8; i++)
+				{
+					PriButton pb = { 0 };
+					pb.fidx = iif;
+					pb.pri = i;
+					strcpy_s(pb.ha, sizeof(pb.ha), ha.c_str());
+					pp[i] = StructSer<PriButton>(pb);
+				}
+				
+				y2.Format(i2, ystring(np.c_str()).c_str(), SizeValue(fs).c_str()
+					, 
+					pp[0].c_str(),
+					pp[1].c_str(),
+					pp[2].c_str(),
+					pp[3].c_str(),
+					pp[4].c_str(),
+					pp[5].c_str(),
+					pp[6].c_str(),
+					pp[7].c_str()
+					);
+				auto x2 = XamlReader::Load(y2.c_str());
+
+				auto clickx = [](const IInspectable& ins, const RoutedEventArgs& r)
+				{
+					auto b = ins.as<MenuFlyoutItem>();
+					ystring np = b.Name().c_str() + 3;
+					PriButton pb = StructUnser<PriButton>(np.a_str());
+					// Search the torrent with this hash
+					th.readlock([&](const vector<lt::torrent_handle>& v) {
+						for (auto& t : v)
+						{
+							if (t.is_valid() && hs(t.info_hash()) == string(pb.ha))
+							{
+								t.file_priority(pb.fidx,(libtorrent::download_priority_t) pb.pri);
+								break;
+							}
+						}
+					});
+
+				};
+
+				for(int g = 0 ; g <= 7 ; g++)
+					x2.as<StackPanel>().FindName(ystring().Format(L"prr%S",pp[g].c_str()).c_str()).as<MenuFlyoutItem>().Click(clickx);
 				LFiles.Items().Append(x2);
 			}
 			catch (...)
@@ -994,6 +1059,64 @@ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 			}
 		}
 	}
+
+}
+
+void UpdateFiles2(lt::torrent_status* st, StackPanel sp)
+{
+	using namespace winrt::Windows::UI::Xaml::Markup;
+	if (!st)
+		return;
+	if (st->state != lt::torrent_status::downloading)
+		return;
+	string ha = hs(st->handle.info_hash());
+
+	// Files
+	auto Files = sp.FindName(L"PivotFiles").as<PivotItem>();
+	auto LFiles = Files.FindName(L"FilesView").as<ListView>();
+	if (!LFiles.Items().Size())
+		return; // Already there
+
+	if (LFiles.Visibility() != Visibility::Visible)
+		return; // Not visible
+
+	vector<int64_t> fpx;
+	auto tf = st->handle.torrent_file();
+	if (tf)
+	{
+		size_t n = tf->files().num_files();
+		st->handle.file_progress(fpx, 1);
+		for (int iif = 0; iif < n; iif++)
+		{
+			ystring s2;
+			auto fs = tf->files().file_size(iif);
+			ystring pri = L"Normal";
+			long long perc = (100 * fpx[iif]) / fs;
+
+			int j = (int)st->handle.file_priority(iif);
+			if (j == 0) pri = L"No Download";
+			if (j == 1) pri = L"Very Low";
+			if (j == 2) pri = L"Low";
+			if (j == 3) pri = L"Below Normal";
+			if (j == 4) pri = L"Normal";
+			if (j == 5) pri = L"Above Normal";
+			if (j == 6) pri = L"High";
+			if (j == 7) pri = L"Critical";
+
+			auto spx = LFiles.Items().GetAt(iif).as<StackPanel>();
+			
+			// Size
+			// sp.FindName(L"fs").as<TextBlock>().Text(SizeValue(fs).c_str());
+
+			// Percentage
+			spx.FindName(L"fp").as<TextBlock>().Text(ystring().Format(L"%u%%",perc).c_str());
+
+			// Priority
+			spx.FindName(L"prb").as<Button>().Content(winrt::box_value(pri.c_str()));
+
+		}
+	}
+	
 
 }
 
@@ -1129,7 +1252,7 @@ void UpdateListView(const lt::torrent_handle* e, WPARAM Rem = 0)
 
 		ystring sp;
 		sp = ystring().Format(
-			txaml.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str(),
+			txaml.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str(),
 			h.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str(), h.c_str());
 		using namespace winrt::Windows::UI::Xaml::Markup;
 		auto ins = XamlReader::Load(sp.c_str());
@@ -1185,6 +1308,8 @@ void UpdateListView2(lt::torrent_status* st)
 			// The peers
 			UpdatePeers(st, sp);
 
+			// The files realtime
+			UpdateFiles2(st, sp);
 		}
 	}
 	catch (...)
