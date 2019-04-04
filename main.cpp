@@ -430,15 +430,15 @@ void BitThread()
 				bool InScan = false;
 
 				// Already scanned?
-				bool NoScan = false;
+				int NoScan = 0;
 				auto ha = hs(sta.info_hash);
 				sqlite::query q(sql->h(), "SELECT * FROM TORRENTS WHERE HASH = ?");
 				q.BindText(1, ha.c_str(), strlen(ha.c_str()));
 				map<string, string> row;
 				if (q.NextRow(row))
 				{
-					if (row["SCANNED"] == string("1"))
-						NoScan = true;
+					if (row["SCANNED"] == string("1") || row["SCANNED"] == string("2"))
+						NoScan = atoi(row["SCANNED"].c_str());
 				}
 
 				if (!NoScan)
@@ -647,7 +647,10 @@ void AVThread()
 
 		if (FoundMalware)
 		{
-			//	MessageBox(MainWindow, L"Torrent contains malware", ttitle, MB_OK);
+			sqlite::sqlite sqlx("config.db");
+			sqlite::query q(sqlx.h(), "UPDATE TORRENTS SET SCANNED = 2 WHERE HASH = ?");
+			q.BindText(1, hash.c_str(), hash.length());
+			q.R();
 		}
 		else
 		{
@@ -658,6 +661,7 @@ void AVThread()
 		}
 		y.Format(L"Scanning %s finished.", ystring(tn.c_str()).c_str());
 		SendMessage(MainWindow, WM_USER + 554, 0, (LPARAM)y.c_str());
+		SendMessage(MainWindow, WM_USER + 555, 0, (LPARAM)hash.c_str());
 
 
 	}
@@ -699,7 +703,7 @@ void AVScan(lt::torrent_handle t)
 
 
 
-void UpdateList(lt::torrent_status* st, StackPanel sp)
+void UpdateList(lt::torrent_status* st, StackPanel sp,bool fc = false)
 {
 	using namespace winrt::Windows::UI::Xaml::Markup;
 	if (!st)
@@ -746,6 +750,22 @@ void UpdateList(lt::torrent_status* st, StackPanel sp)
 				prg.IsIndeterminate(false);
 				prg.Value(prg.Maximum());
 				sp.FindName(ystring().Format(L"KB%S", ha.c_str())).as<TextBlock>().Text(L"Finished");
+				sp.FindName(ystring().Format(L"KA%S", ha.c_str())).as<TextBlock>().Text(L"");
+				sp.FindName(ystring().Format(L"PI%S", ha.c_str())).as<TextBlock>().Text(L"");
+
+				sqlite::query q(sql->h(), "SELECT * FROM TORRENTS WHERE HASH = ?");
+				q.BindText(1, ha.c_str(), strlen(ha.c_str()));
+				map<string, string> row;
+				if (q.NextRow(row))
+				{
+					int at = atoi(row["SCANNED"].c_str());
+					if (at == 1)
+						sp.FindName(ystring().Format(L"KB%S", ha.c_str())).as<TextBlock>().Text(L"Scanning...");
+					if (at == 2)
+						sp.FindName(ystring().Format(L"KB%S", ha.c_str())).as<TextBlock>().Text(L"Finished (Malware)");
+
+				}
+
 			}
 			else
 			{
@@ -1915,6 +1935,39 @@ LRESULT CALLBACK Main_DP(HWND hh, UINT mm, WPARAM ww, LPARAM ll)
 			}
 		}
 		return 0;
+	}
+
+	case WM_USER +  555 : // Refresh torrent
+	{
+		 // ll = hash (const char*)
+		TopView nv = c->ins.as<TopView>();
+
+		ystring fn;
+		string hash = (char*)ll;
+		fn.Format(L"%S", hash.c_str());
+
+		// Update the ListView
+		auto lv = nv.FindName(L"torrlist").as<ListView>();
+		auto its = lv.Items();
+		for (uint32_t i = 0; i < its.Size(); i++)
+		{
+			auto sp = its.GetAt(i).as<StackPanel>();
+			ystring n = winrt::unbox_value<winrt::hstring>(sp.Tag()).c_str();
+			if (n != fn)
+				continue;
+
+			th.readlock([&](const vector<lt::torrent_handle>& v) {
+
+				for (auto& vv : v)
+				{
+					if (hs(vv.info_hash()) == hash)
+					{
+						UpdateList(&vv.status(), sp,true);
+					}
+				}
+				});
+		}
+		break; 
 	}
 
 	case WM_CREATE:
