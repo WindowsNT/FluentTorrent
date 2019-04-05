@@ -237,32 +237,39 @@ void BitThread()
 	map<string, string> row;
 	while (q.NextRow(row))
 	{
-		lt::add_torrent_params atp;
-		if (strlen(row["RD"].c_str()))
+		try
 		{
-			XML3::BXML out;
-			XML3::Base64ToChar(row["RD"].c_str(), row["RD"].length(), out);
-			vector<char> oout(out.size());
-			memcpy(oout.data(), out.operator char *(), oout.size());
-			atp = lt::read_resume_data(oout);
-			if (strlen(row["FILE"].c_str()))
-				atp.ti = std::make_shared<lt::torrent_info>(row["FILE"]);
-		}
-		else
-		{
-
-			if (strlen(row["MAGNET"].c_str()))
-				atp = lt::parse_magnet_uri(row["MAGNET"].c_str());
-			else
+			lt::add_torrent_params atp;
+			if (strlen(row["RD"].c_str()))
+			{
+				XML3::BXML out;
+				XML3::Base64ToChar(row["RD"].c_str(), row["RD"].length(), out);
+				vector<char> oout(out.size());
+				memcpy(oout.data(), out.operator char *(), oout.size());
+				atp = lt::read_resume_data(oout);
 				if (strlen(row["FILE"].c_str()))
 					atp.ti = std::make_shared<lt::torrent_info>(row["FILE"]);
-				else
-					continue;
-		}
+			}
+			else
+			{
 
-		atp.userdata = (void*)atoi(row["ID"].c_str());
-		atp.save_path = Setting("TORRENTDIR", ".\\TORRENTS");
-		ses.async_add_torrent(std::move(atp));
+				if (strlen(row["MAGNET"].c_str()))
+					atp = lt::parse_magnet_uri(row["MAGNET"].c_str());
+				else
+					if (strlen(row["FILE"].c_str()))
+						atp.ti = std::make_shared<lt::torrent_info>(row["FILE"]);
+					else
+						continue;
+			}
+
+			atp.userdata = (void*)atoi(row["ID"].c_str());
+			atp.save_path = Setting("TORRENTDIR", ".\\TORRENTS");
+			ses.async_add_torrent(std::move(atp));
+		}
+		catch (...)
+		{
+
+		}
 	}
 
 
@@ -1200,7 +1207,7 @@ void UpdateInfo(lt::torrent_status* st, StackPanel sp)
 
 	auto pi = sp.FindName(ystring().Format(L"PI%S", ha.c_str())).as<TextBlock>();
 	auto jpos = st->handle.queue_position();
-	if (!Finished)
+	if (!Finished && jpos < 100000)
 		pi.Text(ystring().Format(L"%u", jpos));
 
 	if (Finished)
