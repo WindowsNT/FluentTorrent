@@ -766,8 +766,10 @@ void UpdateList(lt::torrent_status* st, StackPanel sp,bool fc = false)
 				if (q.NextRow(row))
 				{
 					int at = atoi(row["SCANNED"].c_str());
-					if (at == 1)
+					if (at == 0)
 						sp.FindName(ystring().Format(L"KB%S", ha.c_str())).as<TextBlock>().Text(L"Scanning...");
+					if (at == 1)
+						sp.FindName(ystring().Format(L"KB%S", ha.c_str())).as<TextBlock>().Text(L"Finished");
 					if (at == 2)
 						sp.FindName(ystring().Format(L"KB%S", ha.c_str())).as<TextBlock>().Text(L"Finished (Malware)");
 

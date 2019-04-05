@@ -59,7 +59,7 @@
           <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
-          <RowDefinition Height="Auto" x:Name="RowDef3" />
+          <RowDefinition Height="*" x:Name="RowDef3" />
         </Grid.RowDefinitions>
         <ListView Grid.Row="0"  Grid.Column="0" x:Name="PeersView" SelectionMode="Extended" ScrollViewer.VerticalScrollBarVisibility="Visible" />
       </Grid>
